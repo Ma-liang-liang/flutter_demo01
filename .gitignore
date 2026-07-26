@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Android 签名与本地配置（安全相关，补充自 GitHub 模板）
+**/android/**/local.properties
+*.jks
