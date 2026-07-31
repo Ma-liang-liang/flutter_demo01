@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/learning_topic.dart';
-import '../../router/app_navigator.dart';
+import '../../router/navigators/learn_navigator.dart';
 
 /// 学习计划 · 二级页面：章节主题列表
 ///
@@ -101,7 +101,7 @@ class _TopicCard extends StatelessWidget {
         onTap: () {
           // 进入三级演示页面
           // 全屏覆盖 Shell，返回后回到主题列表
-          AppNavigator.toTopicDemo(context, chapterId, index - 1);
+          context.navToTopicDemo(chapterId, index - 1);
         },
       ),
     );

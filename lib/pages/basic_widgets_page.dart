@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
-import '../router/app_navigator.dart';
+import '../router/navigators/basic_navigator.dart';
 import '../widgets/learning_entry_card.dart';
 import '../widgets/section_card.dart';
 
@@ -308,7 +308,7 @@ class _CustomNavBarSection extends StatelessWidget {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: () => AppNavigator.toNavBarDemo(context),
+              onPressed: () => context.navToNavBarDemo(),
               icon: const Icon(Icons.open_in_new),
               label: const Text('查看导航条演示'),
             ),

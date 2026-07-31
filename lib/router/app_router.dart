@@ -30,7 +30,7 @@ class AppRoutePath {
 /// 路由名称常量（用于 context.pushNamed / context.goNamed）
 ///
 /// 统一管理路由名称，避免散落在各调用方的字符串中。
-/// 配合 [AppNavigator] 使用，调用方无需关心名称与路径细节。
+/// 配合 `navigators/` 目录下的 BuildContext 扩展使用，调用方无需关心名称与路径细节。
 class AppRouteName {
   AppRouteName._();
 
@@ -119,11 +119,11 @@ const tabConfigs = <TabConfig>[
 /// 2. **顶层路由（全屏页面层）** — 放在 ShellRoute 之外
 ///    - `/learn/:chapterId` → 学习计划主题列表（二级页面）
 ///    - `/learn/:chapterId/:topicIndex` → 三级演示页面
-///    - 通过 [AppNavigator] 封装的方法进入，全屏覆盖 Shell（底部导航自动隐藏）
+///    - 通过 `context.navToXxx` 扩展方法进入，全屏覆盖 Shell（底部导航自动隐藏）
 ///    - 返回后回到之前的 Tab，Tab 状态保持不变
 ///
 /// 所有 GoRoute 均设置了 `name` 命名路由（见 [AppRouteName]），
-/// 调用方应通过 [AppNavigator] 的语义化方法跳转，避免裸字符串拼接路径。
+/// 调用方应通过 `navigators/` 目录下扩展方法的 `context.navXxx` 跳转，避免裸字符串拼接路径。
 ///
 /// 返回工厂函数而非全局单例，确保每次创建 [MaterialApp.router] 时
 /// 获得独立的路由状态（测试隔离、热重载不残留旧状态）。
