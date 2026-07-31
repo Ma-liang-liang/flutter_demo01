@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
+import '../router/app_navigator.dart';
 import '../widgets/learning_entry_card.dart';
 import '../widgets/section_card.dart';
 
@@ -22,6 +23,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _IconsSection(),
         _ChipsSection(),
         _CardsSection(),
+        _CustomNavBarSection(),
       ],
     );
   }
@@ -288,5 +290,32 @@ void _showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 1)));
+}
+
+// ---------------------------------------------------------------------------
+// 自定义导航条演示入口
+// ---------------------------------------------------------------------------
+class _CustomNavBarSection extends StatelessWidget {
+  const _CustomNavBarSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: '自定义导航条',
+      subtitle: '不依赖系统 AppBar / 完全自定义',
+      icon: Icons.navigation,
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => AppNavigator.toNavBarDemo(context),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('查看导航条演示'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 

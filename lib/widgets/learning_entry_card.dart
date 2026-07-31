@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/learning_topic.dart';
-import '../pages/learn/topic_list_page.dart';
+import '../router/app_navigator.dart';
 
 /// 主页面顶部的「学习计划」入口卡片
 ///
@@ -22,12 +22,8 @@ class LearningEntryCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           // 进入学习计划章节列表（二级页面）
-          Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (context) => TopicListPage(chapter: chapter),
-            ),
-          );
+          // 全屏覆盖 Shell（底部导航隐藏），返回后回到之前的 Tab
+          AppNavigator.toTopicList(context, chapter.id);
         },
         child: Padding(
           padding: const EdgeInsets.all(16),

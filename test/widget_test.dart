@@ -4,15 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_demo01/main.dart';
 
 void main() {
-  testWidgets('App renders with 4 navigation tabs', (tester) async {
+  testWidgets('App renders with 5 navigation tabs', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     // 验证默认显示第一个 Tab（基础组件）
     expect(find.text('基础组件'), findsWidgets);
 
-    // 验证底部导航栏有 4 个 tab
+    // 验证底部导航栏有 5 个 tab
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
 
     // 验证 tab 标签文字
     expect(find.text('表单组件'), findsOneWidget);
@@ -22,6 +23,7 @@ void main() {
 
   testWidgets('Switching tabs changes the displayed page', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     // 点击第二个 Tab（表单组件）
     await tester.tap(find.text('表单组件'));
@@ -33,6 +35,7 @@ void main() {
 
   testWidgets('Basic widgets page has section cards', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     // 验证基础组件页面包含 SectionCard
     expect(find.byType(Card), findsWidgets);
@@ -41,6 +44,7 @@ void main() {
 
   testWidgets('动画交互页 AnimatedContainer 展开不报错', (tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     // 切换到动画交互 Tab
     await tester.tap(find.text('动画交互').first);

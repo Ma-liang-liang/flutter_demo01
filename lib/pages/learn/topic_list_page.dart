@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/learning_topic.dart';
+import '../../router/app_navigator.dart';
 
 /// 学习计划 · 二级页面：章节主题列表
 ///
@@ -48,7 +49,11 @@ class TopicListPage extends StatelessWidget {
           ),
           // 主题列表
           for (var i = 0; i < chapter.topics.length; i++)
-            _TopicCard(index: i + 1, topic: chapter.topics[i]),
+            _TopicCard(
+              index: i + 1,
+              topic: chapter.topics[i],
+              chapterId: chapter.id,
+            ),
         ],
       ),
     );
@@ -59,10 +64,19 @@ class TopicListPage extends StatelessWidget {
 // 主题卡片：序号 + 图标 + 标题简介 + 跳转箭头
 // ---------------------------------------------------------------------------
 class _TopicCard extends StatelessWidget {
-  const _TopicCard({required this.index, required this.topic});
+  const _TopicCard({
+    required this.index,
+    required this.topic,
+    required this.chapterId,
+  });
 
+  /// 显示序号（1-based）
   final int index;
+
   final LearningTopic topic;
+
+  /// 所属章节 ID，用于拼路由路径
+  final String chapterId;
 
   @override
   Widget build(BuildContext context) {
@@ -86,10 +100,8 @@ class _TopicCard extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
           // 进入三级演示页面
-          Navigator.push(
-            context,
-            MaterialPageRoute<void>(builder: (context) => topic.demoPage),
-          );
+          // 全屏覆盖 Shell，返回后回到主题列表
+          AppNavigator.toTopicDemo(context, chapterId, index - 1);
         },
       ),
     );
