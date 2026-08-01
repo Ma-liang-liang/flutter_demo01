@@ -47,6 +47,9 @@ dependencies:
   # 状态管理
   provider: ^6.1.2
 
+  # Riverpod 状态管理（声明式依赖注入 + 响应式状态）
+  flutter_riverpod: ^2.6.1
+
   # 本地存储
   shared_preferences: ^2.3.2
 

@@ -9,6 +9,8 @@ import '../pages/layout_widgets_page.dart';
 import '../pages/learn/topic_list_page.dart';
 import '../pages/nav_bar_demo_page.dart';
 import '../pages/plugin_test_page.dart';
+import '../pages/riverpod/riverpod_demo_data.dart';
+import '../pages/riverpod/riverpod_home_page.dart';
 
 /// 路由路径常量
 class AppRoutePath {
@@ -25,6 +27,9 @@ class AppRoutePath {
 
   /// 自定义导航条演示页面
   static const navBarDemo = '/nav_bar_demo';
+
+  /// Riverpod 状态管理模块
+  static const riverpod = '/riverpod';
 }
 
 /// 路由名称常量（用于 context.pushNamed / context.goNamed）
@@ -49,6 +54,12 @@ class AppRouteName {
 
   /// 自定义导航条演示页面
   static const navBarDemo = 'navBarDemo';
+
+  /// Riverpod 模块 · 二级页面（演示列表）
+  static const riverpodHome = 'riverpodHome';
+
+  /// Riverpod 模块 · 三级页面（具体演示）
+  static const riverpodDemo = 'riverpodDemo';
 }
 
 /// 底部导航 Tab 配置
@@ -219,6 +230,31 @@ GoRouter createAppRouter() => GoRouter(
           name: AppRouteName.navBarDemo,
           path: AppRoutePath.navBarDemo,
           builder: (context, state) => const NavBarDemoPage(),
+        ),
+    
+        /// 二级页面：Riverpod 模块列表
+        GoRoute(
+          name: AppRouteName.riverpodHome,
+          path: AppRoutePath.riverpod,
+          builder: (context, state) => const RiverpodHomePage(),
+          routes: [
+            /// 三级页面：具体演示页面
+            GoRoute(
+              name: AppRouteName.riverpodDemo,
+              path: ':demoId',
+              builder: (context, state) {
+                final demoId = state.pathParameters['demoId']!;
+                final demo = RiverpodDemoData.byId(demoId);
+                if (demo == null) {
+                  return Scaffold(
+                    appBar: AppBar(title: const Text('未找到')),
+                    body: const Center(child: Text('未找到对应的演示页面')),
+                  );
+                }
+                return demo.demoPage;
+              },
+            ),
+          ],
         ),
       ],
     );

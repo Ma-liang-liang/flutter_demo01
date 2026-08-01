@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
 import '../router/navigators/basic_navigator.dart';
+import '../router/navigators/riverpod_navigator.dart';
 import '../widgets/learning_entry_card.dart';
 import '../widgets/section_card.dart';
 
@@ -23,6 +24,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _IconsSection(),
         _ChipsSection(),
         _CardsSection(),
+        _RiverpodSection(),
         _CustomNavBarSection(),
       ],
     );
@@ -290,6 +292,50 @@ void _showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 1)));
+}
+
+// ---------------------------------------------------------------------------
+// Riverpod 状态管理模块入口
+// ---------------------------------------------------------------------------
+class _RiverpodSection extends StatelessWidget {
+  const _RiverpodSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'Riverpod 状态管理',
+      subtitle: 'Provider / StateProvider / FutureProvider / StreamProvider / Notifier',
+      icon: Icons.water_drop,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.water_drop,
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '通过 6 个演示页面，循序渐进掌握 Riverpod 状态管理框架的核心用法。',
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => context.navToRiverpodHome(),
+            child: const Text('进入学习'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
