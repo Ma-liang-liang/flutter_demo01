@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
 import '../router/navigators/basic_navigator.dart';
+import '../router/navigators/network_navigator.dart';
 import '../router/navigators/riverpod_navigator.dart';
 import '../widgets/learning_entry_card.dart';
 import '../widgets/section_card.dart';
@@ -26,6 +27,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _CardsSection(),
         _RiverpodSection(),
         _CustomNavBarSection(),
+        _NetworkSection(),
       ],
     );
   }
@@ -331,6 +333,50 @@ class _RiverpodSection extends StatelessWidget {
           FilledButton(
             onPressed: () => context.navToRiverpodHome(),
             child: const Text('进入学习'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 网络组件演示入口
+// ---------------------------------------------------------------------------
+class _NetworkSection extends StatelessWidget {
+  const _NetworkSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'dio_network 网络封装',
+      subtitle: '统一配置 / 公参 / 业务拦截 / 泛型转模型 / 日志开关',
+      icon: Icons.cloud,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.cloud,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '基于 Dio 的业务层网络封装，演示统一配置、公参注入、业务码拦截、泛型字典转模型等完整能力。',
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => context.navToNetworkDemo(),
+            child: const Text('进入演示'),
           ),
         ],
       ),

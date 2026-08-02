@@ -44,6 +44,11 @@ dependencies:
   # 网络请求
   dio: ^5.7.0
 
+  # --- Dio 业务层网络封装（本地 package）---
+  # 源码位于 plugins/dio_network，提供统一配置 / 公参 / 业务拦截 / 泛型转模型
+  dio_network:
+    path: plugins/dio_network
+
   # 状态管理
   provider: ^6.1.2
 

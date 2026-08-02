@@ -9,6 +9,7 @@ import '../pages/layout_widgets_page.dart';
 import '../pages/learn/topic_list_page.dart';
 import '../pages/nav_bar_demo_page.dart';
 import '../pages/plugin_test_page.dart';
+import '../pages/network_demo_page.dart';
 import '../pages/riverpod/riverpod_demo_data.dart';
 import '../pages/riverpod/riverpod_home_page.dart';
 
@@ -30,6 +31,9 @@ class AppRoutePath {
 
   /// Riverpod 状态管理模块
   static const riverpod = '/riverpod';
+
+  /// 网络组件演示页面
+  static const networkDemo = '/network_demo';
 }
 
 /// 路由名称常量（用于 context.pushNamed / context.goNamed）
@@ -60,6 +64,9 @@ class AppRouteName {
 
   /// Riverpod 模块 · 三级页面（具体演示）
   static const riverpodDemo = 'riverpodDemo';
+
+  /// 网络组件演示页面
+  static const networkDemo = 'networkDemo';
 }
 
 /// 底部导航 Tab 配置
@@ -255,6 +262,13 @@ GoRouter createAppRouter() => GoRouter(
               },
             ),
           ],
+        ),
+
+        /// 二级页面：网络组件演示
+        GoRoute(
+          name: AppRouteName.networkDemo,
+          path: AppRoutePath.networkDemo,
+          builder: (context, state) => const NetworkDemoPage(),
         ),
       ],
     );
