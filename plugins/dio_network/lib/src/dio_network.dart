@@ -11,6 +11,8 @@ import 'http_method.dart';
 import 'upload_file.dart';
 import 'io/file_helper_stub.dart'
     if (dart.library.io) 'io/file_helper_io.dart';
+import 'io/print_helper_stub.dart'
+    if (dart.library.io) 'io/print_helper_io.dart';
 import 'io/security_adapter_stub.dart'
     if (dart.library.io) 'io/security_adapter_io.dart';
 
@@ -1389,18 +1391,19 @@ class DioNetwork {
   }
 
   /// 防截断打印：按行拆分，单行超过 [_kPrintChunkSize] 时分段输出
+  ///
+  /// 使用 [rawPrint] 直接写入 stdout，绕过 Flutter 的 print 拦截，
+  /// 避免控制台输出中出现 `flutter: ` 前缀。
   void _printSafe(String message) {
     for (final line in message.split('\n')) {
       if (line.length <= _kPrintChunkSize) {
-        // ignore: avoid_print
-        print(line);
+        rawPrint(line);
       } else {
         for (var i = 0; i < line.length; i += _kPrintChunkSize) {
           final end = i + _kPrintChunkSize > line.length
               ? line.length
               : i + _kPrintChunkSize;
-          // ignore: avoid_print
-          print(line.substring(i, end));
+          rawPrint(line.substring(i, end));
         }
       }
     }
@@ -1455,9 +1458,9 @@ class DioNetwork {
     if (body != null && body.isNotEmpty) {
       parts.add("-d '${jsonEncode(body)}'");
     }
-    final buffer = StringBuffer('[DioNetwork] │   ${parts.first}');
+    final buffer = StringBuffer('│   ${parts.first}');
     for (final p in parts.skip(1)) {
-      buffer.write(' \\\n[DioNetwork] │     $p');
+      buffer.write(' \\\n│     $p');
     }
     return buffer.toString();
   }
@@ -1490,49 +1493,49 @@ class DioNetwork {
         : '$bodySize B';
 
     final buffer = StringBuffer()
-      ..writeln('[DioNetwork] ┌─── #$seqId ─── $method ─── $_kLogLine')
-      ..writeln('[DioNetwork] │ ➤ $fullUrl')
-      ..writeln('[DioNetwork] │   Time:     ${_timestamp()}')
-      ..writeln('[DioNetwork] │   Duration: ${duration.inMilliseconds}ms');
+      ..writeln('┌─── #$seqId ─── $method ─── $_kLogLine')
+      ..writeln('│ ➤ $fullUrl')
+      ..writeln('│   Time:     ${_timestamp()}')
+      ..writeln('│   Duration: ${duration.inMilliseconds}ms');
 
     // ── Request ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── Request ──────────────────────────────────────────');
+      ..writeln('│')
+      ..writeln('│ ── Request ──────────────────────────────────────────');
     if (contentType != null && contentType.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   ContentType: $contentType');
+      buffer.writeln('│   ContentType: $contentType');
     }
     if (requestHeaders.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Headers:     ${_formatMap(_maskHeaders(requestHeaders))}');
+      buffer.writeln('│   Headers:     ${_formatMap(_maskHeaders(requestHeaders))}');
     }
     if (query.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Query:       ${_formatMap(query)}');
+      buffer.writeln('│   Query:       ${_formatMap(query)}');
     }
     if (requestBody != null && requestBody.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Body:        ${_formatBody(requestBody)}');
+      buffer.writeln('│   Body:        ${_formatBody(requestBody)}');
     }
 
     // ── Response ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── Response ─────────────────────────────────────────');
-    buffer.writeln('[DioNetwork] │   Status:    $statusCode');
-    buffer.writeln('[DioNetwork] │   Size:      $sizeStr');
+      ..writeln('│')
+      ..writeln('│ ── Response ─────────────────────────────────────────');
+    buffer.writeln('│   Status:    $statusCode');
+    buffer.writeln('│   Size:      $sizeStr');
     if (responseHeaders != null && responseHeaders.isNotEmpty) {
       final filtered = _filterResponseHeaders(responseHeaders);
       if (filtered.isNotEmpty) {
-        buffer.writeln('[DioNetwork] │   Headers:    ${_formatMap(filtered)}');
+        buffer.writeln('│   Headers:    ${_formatMap(filtered)}');
       }
     }
-    buffer.writeln('[DioNetwork] │   Body:      ${_formatJson(responseBody)}');
+    buffer.writeln('│   Body:      ${_formatJson(responseBody)}');
 
     // ── cURL ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── cURL ──────────────────────────────────────────────');
+      ..writeln('│')
+      ..writeln('│ ── cURL ──────────────────────────────────────────────');
     buffer.write(_buildCurl(method, fullUrl, requestHeaders, requestBody));
 
-    buffer.write('\n[DioNetwork] └$_kLogLine');
+    buffer.write('\n└$_kLogLine');
     _log(buffer.toString(), enableLog: enableLog);
   }
 
@@ -1557,41 +1560,41 @@ class DioNetwork {
     final fullUrl = _buildFullUrl(path, query);
 
     final buffer = StringBuffer()
-      ..writeln('[DioNetwork] ┌─── #$seqId ERROR ── $method ─── $_kLogLine')
-      ..writeln('[DioNetwork] │ ➤ $fullUrl')
-      ..writeln('[DioNetwork] │   Time:     ${_timestamp()}')
-      ..writeln('[DioNetwork] │   Duration: ${duration.inMilliseconds}ms');
+      ..writeln('┌─── #$seqId ERROR ── $method ─── $_kLogLine')
+      ..writeln('│ ➤ $fullUrl')
+      ..writeln('│   Time:     ${_timestamp()}')
+      ..writeln('│   Duration: ${duration.inMilliseconds}ms');
 
     // ── Request ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── Request ──────────────────────────────────────────');
+      ..writeln('│')
+      ..writeln('│ ── Request ──────────────────────────────────────────');
     if (contentType != null && contentType.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   ContentType: $contentType');
+      buffer.writeln('│   ContentType: $contentType');
     }
     if (requestHeaders.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Headers:     ${_formatMap(_maskHeaders(requestHeaders))}');
+      buffer.writeln('│   Headers:     ${_formatMap(_maskHeaders(requestHeaders))}');
     }
     if (query.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Query:       ${_formatMap(query)}');
+      buffer.writeln('│   Query:       ${_formatMap(query)}');
     }
     if (requestBody != null && requestBody.isNotEmpty) {
-      buffer.writeln('[DioNetwork] │   Body:        ${_formatBody(requestBody)}');
+      buffer.writeln('│   Body:        ${_formatBody(requestBody)}');
     }
 
     // ── Error ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── Error ─────────────────────────────────────────────');
-    buffer.writeln('[DioNetwork] │   Error:    $error');
+      ..writeln('│')
+      ..writeln('│ ── Error ─────────────────────────────────────────────');
+    buffer.writeln('│   Error:    $error');
 
     // ── cURL ──
     buffer
-      ..writeln('[DioNetwork] │')
-      ..writeln('[DioNetwork] │ ── cURL ──────────────────────────────────────────────');
+      ..writeln('│')
+      ..writeln('│ ── cURL ──────────────────────────────────────────────');
     buffer.write(_buildCurl(method, fullUrl, requestHeaders, requestBody));
 
-    buffer.write('\n[DioNetwork] └$_kLogLine');
+    buffer.write('\n└$_kLogLine');
     _log(buffer.toString(), enableLog: enableLog);
   }
 
@@ -1621,8 +1624,8 @@ class DioNetwork {
     if (map.isEmpty) return '{}';
     final entries = map.entries
         .map((e) => '    ${e.key}: ${e.value}')
-        .join('\n[DioNetwork] │     ');
-    return '{\n[DioNetwork] │     $entries\n[DioNetwork] │   }';
+        .join('\n│     ');
+    return '{\n│     $entries\n│   }';
   }
 
   /// 格式化请求体（JSON 美化 + 缩进对齐）
@@ -1647,14 +1650,14 @@ class DioNetwork {
     }
   }
 
-  /// JSON 美化输出（带日志前缀缩进）
+  /// JSON 美化输出（带竖线缩进）
   String _prettyJson(String json) {
     final lines = json.split('\n');
     if (lines.length <= 1) return json;
-    // 多行 JSON：首行直接输出，后续行加日志前缀对齐
+    // 多行 JSON：首行直接输出，后续行加竖线对齐
     final buffer = StringBuffer(lines.first);
     for (var i = 1; i < lines.length; i++) {
-      buffer.write('\n[DioNetwork] │     ${lines[i]}');
+      buffer.write('\n│     ${lines[i]}');
     }
     return buffer.toString();
   }
