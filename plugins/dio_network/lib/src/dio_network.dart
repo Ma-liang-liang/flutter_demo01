@@ -11,8 +11,6 @@ import 'http_method.dart';
 import 'upload_file.dart';
 import 'io/file_helper_stub.dart'
     if (dart.library.io) 'io/file_helper_io.dart';
-import 'io/print_helper_stub.dart'
-    if (dart.library.io) 'io/print_helper_io.dart';
 import 'io/security_adapter_stub.dart'
     if (dart.library.io) 'io/security_adapter_io.dart';
 
@@ -1392,18 +1390,20 @@ class DioNetwork {
 
   /// 防截断打印：按行拆分，单行超过 [_kPrintChunkSize] 时分段输出
   ///
-  /// 使用 [rawPrint] 直接写入 stdout，绕过 Flutter 的 print 拦截，
-  /// 避免控制台输出中出现 `flutter: ` 前缀。
+  /// `flutter:` 前缀是 Flutter 工具拦截 print 后自动添加的，无法绕过。
+  /// 如需完全无前缀的输出，请通过 [DioNetworkConfig.logCallback] 自定义输出通道。
   void _printSafe(String message) {
     for (final line in message.split('\n')) {
       if (line.length <= _kPrintChunkSize) {
-        rawPrint(line);
+        // ignore: avoid_print
+        print(line);
       } else {
         for (var i = 0; i < line.length; i += _kPrintChunkSize) {
           final end = i + _kPrintChunkSize > line.length
               ? line.length
               : i + _kPrintChunkSize;
-          rawPrint(line.substring(i, end));
+          // ignore: avoid_print
+          print(line.substring(i, end));
         }
       }
     }
