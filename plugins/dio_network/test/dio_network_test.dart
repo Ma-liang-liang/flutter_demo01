@@ -13,13 +13,25 @@ class MockHttpAdapter implements HttpClientAdapter {
 
   final List<RequestOptions> requests = [];
 
+  /// 与 [requests] 一一对应的请求体字节（无 body 时为 null）
+  final List<Uint8List?> requestBodies = [];
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
-  ) {
+  ) async {
     requests.add(options);
+    if (requestStream != null) {
+      final builder = BytesBuilder(copy: true);
+      await for (final chunk in requestStream) {
+        builder.add(chunk);
+      }
+      requestBodies.add(builder.takeBytes());
+    } else {
+      requestBodies.add(null);
+    }
     return handler!(options);
   }
 
@@ -280,6 +292,58 @@ void main() {
       final raw = await DioNetwork.instance.requestRaw('/a');
 
       expect(jsonDecode(raw), {'code': 9999, 'message': 'whatever'});
+    });
+
+    test('无 converter 且 T 与 data 不匹配 → 抛 ApiError.parse 而非 TypeError', () async {
+      adapter.handler = (options) async => jsonResponse({
+            'code': 0,
+            'message': 'ok',
+            'data': {'name': 'hello'},
+          });
+      initDefault();
+
+      await expectLater(
+        DioNetwork.instance.request<_FakeUser>('/a'),
+        throwsA(
+          isA<ApiError>()
+              .having((e) => e.type, 'type', ApiErrorType.parse)
+              .having((e) => e.message, 'message', contains('converter')),
+        ),
+      );
+    });
+
+    test('无 converter 且 T 与 data 兼容 → 原样返回', () async {
+      adapter.handler = (options) async => jsonResponse({
+            'code': 0,
+            'message': 'ok',
+            'data': {'name': 'hello'},
+          });
+      initDefault();
+
+      final res = await DioNetwork.instance.request<Map<String, dynamic>>('/a');
+      expect(res.data, {'name': 'hello'});
+    });
+
+    test('无 converter 且 data 为 null → 任何 T 都安全返回 null', () async {
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      initDefault();
+
+      final res = await DioNetwork.instance.request<_FakeUser>('/a');
+      expect(res.data, isNull);
+    });
+
+    test('无 converter 时基本类型合理强转（String→int、无损 double→int）', () async {
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': '123'});
+      initDefault();
+      var res = await DioNetwork.instance.request<int>('/a');
+      expect(res.data, 123);
+
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': 3.0});
+      res = await DioNetwork.instance.request<int>('/a');
+      expect(res.data, 3);
     });
   });
 
@@ -654,6 +718,183 @@ void main() {
 
       expect(adapter.requests.single.queryParameters, {'app': 'demo', 'id': 7});
     });
+
+    test('upload 内存字节文件上传', () async {
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      initDefault();
+
+      await DioNetwork.instance.upload(
+        '/upload',
+        fileBytes: Uint8List.fromList(utf8.encode('img-bytes')),
+        fileName: 'shot.png',
+      );
+
+      final bodyStr = latin1.decode(adapter.requestBodies.single!);
+      expect(bodyStr, contains('img-bytes'));
+      expect(bodyStr, contains('filename="shot.png"'));
+    });
+
+    test('fileBytes 上传未指定 fileName 抛 ArgumentError', () {
+      initDefault();
+      expect(
+        () => DioNetwork.instance.upload(
+          '/upload',
+          fileBytes: Uint8List.fromList([1, 2, 3]),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('filePath 与 fileBytes 同时传入抛 ArgumentError', () {
+      initDefault();
+      expect(
+        () => DioNetwork.instance.upload(
+          '/upload',
+          filePath: '/tmp/a.txt',
+          fileBytes: Uint8List.fromList([1]),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('uploadFiles 多文件上传（本地文件 + 内存字节，不同字段名）', () async {
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      initDefault();
+
+      final f1 = File('${tempDir.path}/a.txt')..writeAsStringSync('file1-content');
+      await DioNetwork.instance.uploadFiles(
+        '/upload',
+        files: [
+          UploadFile.fromPath(path: f1.path, fieldName: 'avatar'),
+          UploadFile.fromBytes(
+            bytes: Uint8List.fromList(utf8.encode('mem-bytes')),
+            fileName: 'b.bin',
+            fieldName: 'attach',
+          ),
+        ],
+        formData: {'biz': 'demo'},
+      );
+
+      final bodyStr = latin1.decode(adapter.requestBodies.single!);
+      expect(bodyStr, contains('name="avatar"'));
+      expect(bodyStr, contains('name="attach"'));
+      expect(bodyStr, contains('name="biz"'));
+      expect(bodyStr, contains('file1-content'));
+      expect(bodyStr, contains('mem-bytes'));
+      expect(bodyStr, contains('filename="b.bin"'));
+    });
+
+    test('下载断点续传：携带 Range 头且文件正确拼接', () async {
+      final full = utf8.encode('hello world download resume test');
+      final part2 = full.sublist(10);
+      final savePath = '${tempDir.path}/resume.bin';
+      await File('$savePath.downloading').writeAsBytes(full.sublist(0, 10));
+
+      adapter.handler = (options) async {
+        expect(options.headers['range'], 'bytes=10-');
+        return ResponseBody(
+          Stream.value(Uint8List.fromList(part2)),
+          206,
+          headers: {
+            'content-range': ['bytes 10-${full.length - 1}/${full.length}'],
+          },
+        );
+      };
+      initDefault();
+
+      await DioNetwork.instance.download('/file', savePath: savePath);
+
+      expect(await File(savePath).readAsBytes(), full);
+      expect(await File('$savePath.downloading').exists(), isFalse);
+    });
+
+    test('下载续传开启但服务端忽略 Range（200）→ 从头重下', () async {
+      final savePath = '${tempDir.path}/full.bin';
+      // 预置残留的部分进度
+      await File('$savePath.downloading').writeAsBytes([9, 9, 9]);
+
+      adapter.handler = (options) async {
+        expect(options.headers['range'], 'bytes=3-');
+        return ResponseBody.fromString('full-content', 200);
+      };
+      initDefault();
+
+      await DioNetwork.instance.download('/file', savePath: savePath);
+
+      expect(await File(savePath).readAsString(), 'full-content');
+    });
+
+    test('下载中断保留进度，再次调用从断点继续', () async {
+      final full = utf8.encode('0123456789ABCDEF');
+      final part1 = full.sublist(0, 6);
+      final part2 = full.sublist(6);
+      final savePath = '${tempDir.path}/broken.bin';
+
+      var call = 0;
+      adapter.handler = (options) async {
+        call++;
+        if (call == 1) {
+          // 第一次：发送前半后断开（模拟网络中断）
+          Stream<Uint8List> brokenStream() async* {
+            yield Uint8List.fromList(part1);
+            throw Exception('connection reset');
+          }
+
+          return ResponseBody(
+            brokenStream(),
+            200,
+            headers: {
+              'content-length': ['${full.length}'],
+            },
+          );
+        }
+        // 第二次：验证从断点 6 继续
+        expect(options.headers['range'], 'bytes=6-');
+        return ResponseBody(
+          Stream.value(Uint8List.fromList(part2)),
+          206,
+          headers: {
+            'content-range': ['bytes 6-${full.length - 1}/${full.length}'],
+          },
+        );
+      };
+      initDefault();
+
+      await expectLater(
+        DioNetwork.instance.download('/file', savePath: savePath),
+        throwsA(isA<ApiError>()),
+      );
+      // 中断后临时文件保留已下载部分
+      expect(await File('$savePath.downloading').readAsBytes(), part1);
+
+      await DioNetwork.instance.download('/file', savePath: savePath);
+      expect(await File(savePath).readAsBytes(), full);
+      expect(call, 2);
+    });
+
+    test('下载 416 断点失效 → 清理临时文件从头重下', () async {
+      final savePath = '${tempDir.path}/stale.bin';
+      await File('$savePath.downloading').writeAsBytes([1, 2, 3, 4]);
+
+      var call = 0;
+      adapter.handler = (options) async {
+        call++;
+        if (call == 1) {
+          expect(options.headers['range'], 'bytes=4-');
+          return ResponseBody.fromString('', 416);
+        }
+        expect(options.headers.containsKey('range'), isFalse);
+        return ResponseBody.fromString('fresh-content', 200);
+      };
+      initDefault();
+
+      await DioNetwork.instance.download('/file', savePath: savePath);
+
+      expect(await File(savePath).readAsString(), 'fresh-content');
+      expect(call, 2);
+    });
   });
 
   group('ApiResponse / ApiError 基础能力', () {
@@ -672,4 +913,76 @@ void main() {
       expect(ApiError.fromHttpStatus(418).type, ApiErrorType.badResponse);
     });
   });
+
+  group('单请求日志开关 enableLog', () {
+    test('全局关闭时，单请求传 enableLog: true 能打印日志', () async {
+      final logs = <String>[];
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      DioNetwork.instance.init(DioNetworkConfig(
+        baseUrl: 'https://api.test.com',
+        enableLog: false,
+        logCallback: logs.add,
+        httpClientAdapter: adapter,
+      ));
+
+      await DioNetwork.instance.get('/a', enableLog: true);
+
+      expect(logs.any((l) => l.contains('─── #')), isTrue);
+      expect(logs.any((l) => l.contains('─ Request ─')), isTrue);
+      expect(logs.any((l) => l.contains('─ Response ─')), isTrue);
+    });
+
+    test('全局关闭时，不传 enableLog 则不打印', () async {
+      final logs = <String>[];
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      DioNetwork.instance.init(DioNetworkConfig(
+        baseUrl: 'https://api.test.com',
+        enableLog: false,
+        logCallback: logs.add,
+        httpClientAdapter: adapter,
+      ));
+
+      await DioNetwork.instance.get('/a');
+
+      expect(logs, isEmpty);
+    });
+
+    test('全局开启时，单请求传 enableLog: false 能抑制请求日志', () async {
+      final logs = <String>[];
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      DioNetwork.instance.init(DioNetworkConfig(
+        baseUrl: 'https://api.test.com',
+        enableLog: true,
+        logCallback: logs.add,
+        httpClientAdapter: adapter,
+      ));
+      logs.clear(); // 清除 init 日志，只关注请求日志
+
+      await DioNetwork.instance.get('/a', enableLog: false);
+
+      expect(logs, isEmpty);
+    });
+
+    test('全局开启时，不传 enableLog 沿用全局开启', () async {
+      final logs = <String>[];
+      adapter.handler = (options) async =>
+          jsonResponse({'code': 0, 'message': 'ok', 'data': null});
+      DioNetwork.instance.init(DioNetworkConfig(
+        baseUrl: 'https://api.test.com',
+        enableLog: true,
+        logCallback: logs.add,
+        httpClientAdapter: adapter,
+      ));
+
+      await DioNetwork.instance.get('/a');
+
+      expect(logs.any((l) => l.contains('─── #')), isTrue);
+    });
+  });
 }
+
+/// 测试用模型（验证无 converter 时 T 为具体模型的行为）
+class _FakeUser {}

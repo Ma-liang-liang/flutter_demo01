@@ -7,6 +7,9 @@ library;
 // 核心管理类
 export 'src/dio_network.dart';
 
+// 便捷方法扩展（HTTP 动词 / 单文件上传）
+export 'src/dio_network_extension.dart';
+
 // 配置（含 BusinessInterceptorCallback、LogCallback typedef）
 export 'src/dio_network_config.dart';
 
@@ -17,3 +20,4 @@ export 'src/security_config.dart';
 export 'src/http_method.dart';
 export 'src/api_response.dart';
 export 'src/api_error.dart';
+export 'src/upload_file.dart';
