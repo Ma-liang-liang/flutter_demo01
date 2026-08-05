@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../utils/theme_ext.dart';
 import '../../../../widgets/demo_page_scaffold.dart';
 import '../../../../widgets/section_card.dart';
 
@@ -203,7 +204,7 @@ class _BadgeSection extends StatelessWidget {
                   width: 14,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Colors.green,
+                    color: context.appColors.success,
                     shape: BoxShape.circle,
                     border: Border.all(color: theme.colorScheme.surface, width: 2),
                   ),
@@ -259,7 +260,7 @@ class _OverlaySection extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
+                        context.appColors.scrim,
                       ],
                     ),
                   ),

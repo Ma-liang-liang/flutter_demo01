@@ -4,6 +4,7 @@ import 'package:dio/dio.dart' show Headers;
 import 'package:dio_network/dio_network.dart';
 import 'package:flutter/material.dart';
 
+import '../utils/theme_ext.dart';
 import '../widgets/section_card.dart';
 
 /// 网络组件演示页面
@@ -452,14 +453,16 @@ class _NetworkDemoPageState extends State<NetworkDemoPage> {
               constraints: const BoxConstraints(minHeight: 200),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: context.appColors.codeBlockBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: _logs.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         '点击上方按钮开始演示',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(
+                          color: context.appColors.codeBlockForeground.withValues(alpha: 0.5),
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -471,8 +474,8 @@ class _NetworkDemoPageState extends State<NetworkDemoPage> {
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(
                             _logs[index],
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
+                            style: TextStyle(
+                              color: context.appColors.codeBlockForeground,
                               fontSize: 12,
                               fontFamily: 'monospace',
                             ),
@@ -678,13 +681,13 @@ class _CodeBlock extends StatelessWidget {
       margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black87,
+        color: context.appColors.codeBlockBackground,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         code,
-        style: const TextStyle(
-          color: Colors.greenAccent,
+        style: TextStyle(
+          color: context.appColors.codeBlockForeground,
           fontSize: 12,
           fontFamily: 'monospace',
         ),

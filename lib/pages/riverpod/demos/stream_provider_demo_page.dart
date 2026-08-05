@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../utils/app_colors.dart';
 import '../../../widgets/demo_page_scaffold.dart';
 import '../../../widgets/section_card.dart';
 import '../providers/stream_provider_examples.dart';
@@ -192,7 +193,8 @@ class _StockPriceSection extends ConsumerWidget {
             ),
             data: (stock) {
               final isUp = stock.change >= 0;
-              final color = isUp ? Colors.green : Colors.red;
+              final appColors = Theme.of(context).extension<AppColors>()!;
+              final color = isUp ? appColors.success : appColors.danger;
               return Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),

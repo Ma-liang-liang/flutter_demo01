@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../utils/theme_ext.dart';
 import '../../../../widgets/demo_page_scaffold.dart';
 import '../../../../widgets/section_card.dart';
 
@@ -59,10 +60,10 @@ class _MainAxisSection extends StatelessWidget {
               ),
               child: Row(
                 mainAxisAlignment: alignment,
-                children: const [
-                  _ColorBox(color: Colors.red),
-                  _ColorBox(color: Colors.green),
-                  _ColorBox(color: Colors.blue),
+                children: [
+                  _ColorBox(color: context.colors.error),
+                  _ColorBox(color: context.appColors.success),
+                  _ColorBox(color: context.colors.primary),
                 ],
               ),
             ),
@@ -108,10 +109,10 @@ class _CrossAxisSection extends StatelessWidget {
               ),
               child: Row(
                 crossAxisAlignment: alignment,
-                children: const [
-                  _ColorBox(color: Colors.red, height: 24),
-                  _ColorBox(color: Colors.green, height: 40),
-                  _ColorBox(color: Colors.blue, height: 32),
+                children: [
+                  _ColorBox(color: context.colors.error, height: 24),
+                  _ColorBox(color: context.appColors.success, height: 40),
+                  _ColorBox(color: context.colors.primary, height: 32),
                 ],
               ),
             ),
@@ -145,9 +146,9 @@ class _ExpandedSection extends StatelessWidget {
             height: 40,
             child: Row(
               children: [
-                Expanded(child: Container(color: Colors.red.shade200)),
-                Expanded(flex: 2, child: Container(color: Colors.green.shade200)),
-                Expanded(child: Container(color: Colors.blue.shade200)),
+                Expanded(child: Container(color: context.colors.errorContainer)),
+                Expanded(flex: 2, child: Container(color: context.colors.secondaryContainer)),
+                Expanded(child: Container(color: context.colors.primaryContainer)),
               ],
             ),
           ),

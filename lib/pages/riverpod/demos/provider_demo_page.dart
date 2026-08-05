@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../utils/theme_ext.dart';
 import '../../../widgets/demo_page_scaffold.dart';
 import '../../../widgets/section_card.dart';
 import '../providers/provider_examples.dart';
@@ -96,8 +97,8 @@ class _CombinedSection extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _ValueChip(label: 'baseCount', value: '$base'),
-              const Text('× 2', style: TextStyle(fontSize: 20, color: Colors.grey)),
-              const Text('=', style: TextStyle(fontSize: 20, color: Colors.grey)),
+              Text('× 2', style: TextStyle(fontSize: 20, color: context.colors.outline)),
+              Text('=', style: TextStyle(fontSize: 20, color: context.colors.outline)),
               _ValueChip(label: 'doubledCount', value: '$doubled', highlight: true),
             ],
           ),

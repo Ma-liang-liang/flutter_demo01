@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../utils/app_colors.dart';
 import '../../../widgets/demo_page_scaffold.dart';
 import '../../../widgets/section_card.dart';
 import '../providers/notifier_provider_examples.dart';
@@ -40,6 +41,7 @@ class _TodoListSection extends ConsumerWidget {
     final incomplete = ref.watch(incompleteCountProvider);
     final complete = ref.watch(completeCountProvider);
     final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>()!;
     final controller = TextEditingController();
 
     return SectionCard(
@@ -54,7 +56,7 @@ class _TodoListSection extends ConsumerWidget {
             children: [
               _StatChip(label: '未完成', count: incomplete, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              _StatChip(label: '已完成', count: complete, color: Colors.green),
+              _StatChip(label: '已完成', count: complete, color: appColors.success),
               const Spacer(),
               if (complete > 0)
                 TextButton.icon(
@@ -99,7 +101,7 @@ class _TodoListSection extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
-              child: Text('暂无任务', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+              child: Text('暂无任务', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
             )
           else
             ConstrainedBox(
@@ -119,7 +121,7 @@ class _TodoListSection extends ConsumerWidget {
                       todo.title,
                       style: TextStyle(
                         decoration: todo.completed ? TextDecoration.lineThrough : null,
-                        color: todo.completed ? Colors.grey : null,
+                        color: todo.completed ? theme.colorScheme.outline : null,
                       ),
                     ),
                     trailing: IconButton(
@@ -185,7 +187,7 @@ class _CartSection extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
-              child: Text('购物车为空', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+              child: Text('购物车为空', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
             )
           else
             ConstrainedBox(
