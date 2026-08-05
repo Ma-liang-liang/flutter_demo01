@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/learning_plan_data.dart';
+import '../features/login/bloc_login/view/bloc_login_page.dart';
+import '../features/login/riverpod_login/view/riverpod_login_page.dart';
 import '../pages/animation_interaction_page.dart';
 import '../pages/basic_widgets_page.dart';
 import '../pages/form_widgets_page.dart';
@@ -31,6 +33,9 @@ class AppRoutePath {
 
   /// Riverpod 状态管理模块
   static const riverpod = '/riverpod';
+
+  /// 登录对比模块（Bloc vs Riverpod 两套实现）
+  static const login = '/login';
 
   /// 网络组件演示页面
   static const networkDemo = '/network_demo';
@@ -64,6 +69,12 @@ class AppRouteName {
 
   /// Riverpod 模块 · 三级页面（具体演示）
   static const riverpodDemo = 'riverpodDemo';
+
+  /// 登录对比 · Bloc 版登录页面
+  static const loginBloc = 'loginBloc';
+
+  /// 登录对比 · Riverpod 版登录页面
+  static const loginRiverpod = 'loginRiverpod';
 
   /// 网络组件演示页面
   static const networkDemo = 'networkDemo';
@@ -269,6 +280,20 @@ GoRouter createAppRouter() => GoRouter(
           name: AppRouteName.networkDemo,
           path: AppRoutePath.networkDemo,
           builder: (context, state) => const NetworkDemoPage(),
+        ),
+
+        /// 登录对比模块：Bloc 版登录页面
+        GoRoute(
+          name: AppRouteName.loginBloc,
+          path: '${AppRoutePath.login}/bloc',
+          builder: (context, state) => const BlocLoginPage(),
+        ),
+
+        /// 登录对比模块：Riverpod 版登录页面
+        GoRoute(
+          name: AppRouteName.loginRiverpod,
+          path: '${AppRoutePath.login}/riverpod',
+          builder: (context, state) => const RiverpodLoginPage(),
         ),
       ],
     );

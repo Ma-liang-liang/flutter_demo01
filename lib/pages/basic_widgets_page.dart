@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
 import '../router/navigators/basic_navigator.dart';
+import '../router/navigators/login_navigator.dart';
 import '../router/navigators/network_navigator.dart';
 import '../router/navigators/riverpod_navigator.dart';
 import '../widgets/learning_entry_card.dart';
@@ -25,6 +26,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _IconsSection(),
         _ChipsSection(),
         _CardsSection(),
+        _LoginCompareSection(),
         _RiverpodSection(),
         _CustomNavBarSection(),
         _NetworkSection(),
@@ -294,6 +296,71 @@ void _showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 1)));
+}
+
+// ---------------------------------------------------------------------------
+// 登录对比模块入口（Bloc vs Riverpod）
+// ---------------------------------------------------------------------------
+class _LoginCompareSection extends StatelessWidget {
+  const _LoginCompareSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'Bloc vs Riverpod 登录对比',
+      subtitle: '同一业务 / 同一 MVVM 架构 / 两种状态管理实现',
+      icon: Icons.compare_arrows,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.compare_arrows,
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '共享同一个模拟登录仓库，分别用 Bloc（事件驱动）和 Riverpod（Notifier 方法调用）'
+                  '实现 MVVM 登录模块，进入两个页面即可对比两种方案的实现差异。',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => context.navToBlocLogin(),
+                  icon: const Icon(Icons.hub),
+                  label: const Text('Bloc 版'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => context.navToRiverpodLogin(),
+                  icon: const Icon(Icons.water_drop),
+                  label: const Text('Riverpod 版'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
