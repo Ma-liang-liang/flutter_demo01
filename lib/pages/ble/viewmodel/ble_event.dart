@@ -41,24 +41,24 @@ final class BleDisconnectRequested extends BleEvent {
   const BleDisconnectRequested();
 }
 
-/// 发送裸数据
+/// 发送裸数据（字符串直接发送，UTF-8 编码）
 final class BleSendRawRequested extends BleEvent {
-  const BleSendRawRequested(this.data);
+  const BleSendRawRequested(this.text);
 
-  final Uint8List data;
+  final String text;
 
   @override
-  List<Object?> get props => [data];
+  List<Object?> get props => [text];
 }
 
-/// 可靠传输
+/// 可靠传输（字符串直接发送，UTF-8 编码）
 final class BleSendReliableRequested extends BleEvent {
-  const BleSendReliableRequested(this.data);
+  const BleSendReliableRequested(this.text);
 
-  final Uint8List data;
+  final String text;
 
   @override
-  List<Object?> get props => [data];
+  List<Object?> get props => [text];
 }
 
 /// 取消传输

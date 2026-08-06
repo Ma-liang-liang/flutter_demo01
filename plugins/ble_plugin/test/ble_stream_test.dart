@@ -10,6 +10,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:ble_plugin/ble_plugin.dart';
@@ -22,6 +23,9 @@ class FakeBleBridge implements BleBridge {
 
   /// 已调用的方法名列表（如 startScan / connect / writeValue）。
   final List<String> calls = [];
+
+  /// 已写入的原始值列表（与调用顺序一致）。
+  final List<List<int>> writtenValues = [];
 
   /// 模拟的最大写入长度。
   int maxWriteLength = 512;
@@ -92,6 +96,7 @@ class FakeBleBridge implements BleBridge {
     required bool writeWithResponse,
   }) async {
     calls.add('writeValue');
+    writtenValues.add(value);
     return true;
   }
 
@@ -405,6 +410,67 @@ void main() {
 
       expect(metricsList, isNotEmpty);
       expect(metricsList.last.maximumWriteLength, 244); // mtu - 3
+      await sub.cancel();
+    });
+
+    test('sendReliableString 按 UTF-8 编码写入并完成传输', () async {
+      final transferEvents = <BluetoothTransferEvent>[];
+      final sub = manager.transferEventsStream.listen(transferEvents.add);
+
+      // 建立连接与特征就绪
+      await manager.connect(const BluetoothDevice(
+        identifier: 'D3',
+        name: 'Device C',
+      ));
+      bridge.emit(const BleConnectionChangedEvent(
+        deviceId: 'D3',
+        state: 'connected',
+      ));
+      await pumpEventQueue();
+      bridge.emit(serviceWithCharacteristic(
+        deviceId: 'D3',
+        serviceId: 'FFF0',
+        characteristicId: 'FFF1',
+      ));
+      await pumpEventQueue();
+
+      // 发送带中文的文本
+      const text = 'hello 蓝牙';
+      final transferId = await manager.sendReliableString(text);
+      expect(transferId, isNotNull);
+
+      // 写入的帧 payload 应为 UTF-8 编码的文本
+      final written = bridge.writtenValues.last;
+      final frame =
+          BluetoothProtocolCodec.decode(Uint8List.fromList(written));
+      expect(frame, isNotNull);
+      expect(frame!.payload, utf8.encode(text));
+
+      // 外设回 ACK → 传输完成
+      final ack = BluetoothProtocolCodec.encode(
+        BluetoothProtocolCodec.makeAck(
+          sequence: 0,
+          offset: 0,
+          totalLength: utf8.encode(text).length,
+        ),
+      );
+      bridge.emit(BleCharacteristicValueChangedEvent(
+        deviceId: 'D3',
+        serviceId: 'FFF0',
+        characteristicId: 'FFF1',
+        value: ack,
+      ));
+      await pumpEventQueue();
+
+      expect(transferEvents.last, isA<BluetoothTransferCompleted>());
+
+      // 断开清理
+      await manager.disconnect();
+      bridge.emit(const BleConnectionChangedEvent(
+        deviceId: 'D3',
+        state: 'disconnected',
+      ));
+      await pumpEventQueue();
       await sub.cancel();
     });
 

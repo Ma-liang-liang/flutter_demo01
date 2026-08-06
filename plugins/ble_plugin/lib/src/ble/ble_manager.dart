@@ -24,6 +24,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../platform/ble_bridge.dart' show BleBridge, PlatformBridgeException;
@@ -420,7 +421,7 @@ class BluetoothManager {
   /// 原始写入接口，适合临时调试或外设协议不支持 App 层包头的情况。
   /// 生产中的文件/OTA/关键命令建议优先使用 [sendReliableData]。
   ///
-  /// - [data]: 要发送的原始数据
+  /// - [data]: 要发送的原始数据（兼容 [Uint8List]）
   /// - [role]: 写入特征角色，默认 commandWrite
   /// - [writeType]: 写入方式，null 则自动选择
   Future<void> sendRaw(
@@ -432,16 +433,28 @@ class BluetoothManager {
     return _sendRawImpl(this, data, role: role, writeType: writeType);
   }
 
+  /// 原始写入接口的字符串便捷方法（UTF-8 编码）。
+  ///
+  /// 等价于 `sendRaw(utf8.encode(text), ...)`，适合发送文本指令/JSON。
+  Future<void> sendRawString(
+    String text, {
+    BluetoothCharacteristicRole role =
+        BluetoothCharacteristicRole.commandWrite,
+    BleWriteType? writeType,
+  }) {
+    return sendRaw(utf8.encode(text), role: role, writeType: writeType);
+  }
+
   /// 可靠传输接口：App 层包头 + CRC + ACK 窗口 + 超时重试。
   ///
   /// 注意：外设固件需要按 [BluetoothProtocolCodec] 的格式回 ACK，
   /// 否则会触发超时重试。
   ///
-  /// - [data]: 要发送的数据
+  /// - [data]: 要发送的数据（兼容 [Uint8List]）
   /// - [options]: 传输配置（角色、可靠性、窗口大小、重试次数等）
   ///
-  /// 返回传输 ID，可用于关联 [BluetoothManagerDelegate.onTransferCompleted]
-  /// 和 [BluetoothManagerDelegate.onTransferPaused] 回调。传输失败时返回 null。
+  /// 返回传输 ID，可用于关联 [BluetoothTransferCompleted] 等
+  /// [transferEventsStream] 事件。传输前置条件不满足时返回 null。
   Future<String?> sendReliableData(
     List<int> data, {
     BluetoothTransferOptions options = const BluetoothTransferOptions(),
@@ -449,8 +462,18 @@ class BluetoothManager {
     return _sendReliableDataImpl(this, data, options: options);
   }
 
-  /// 读取指定角色的特征值（异步操作，结果通过
-  /// [BluetoothManagerDelegate.onDataReceived] 回调返回）。
+  /// 可靠传输接口的字符串便捷方法（UTF-8 编码）。
+  ///
+  /// 等价于 `sendReliableData(utf8.encode(text), ...)`，适合发送
+  /// 需要可靠确认的文本指令/JSON/配置。
+  Future<String?> sendReliableString(
+    String text, {
+    BluetoothTransferOptions options = const BluetoothTransferOptions(),
+  }) {
+    return sendReliableData(utf8.encode(text), options: options);
+  }
+
+  /// 读取指定角色的特征值（异步操作，结果通过 [dataStream] 推送）。
   ///
   /// - [role]: 要读取的特征角色，默认 read
   Future<void> readValue({

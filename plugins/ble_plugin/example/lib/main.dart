@@ -4,8 +4,9 @@
 /// 顶部连接与状态 → 操作区 → 附近设备列表 → 实时日志。
 library;
 
+import 'dart:convert';
+
 import 'package:ble_plugin/ble_plugin.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -69,6 +70,10 @@ class _BleDebugPageState extends State<BleDebugPage>
   /// 日志（最新在最前）。
   final List<String> _logs = [];
 
+  /// 发送内容输入框（字符串直接发送，UTF-8 编码）。
+  final TextEditingController _commandController =
+      TextEditingController(text: 'Hello BLE 👋 你好，蓝牙!');
+
   // MARK: - 生命周期
 
   @override
@@ -80,6 +85,7 @@ class _BleDebugPageState extends State<BleDebugPage>
 
   @override
   void dispose() {
+    _commandController.dispose();
     _manager.removeDelegate(this);
     super.dispose();
   }
@@ -124,23 +130,31 @@ class _BleDebugPageState extends State<BleDebugPage>
   }
 
   Future<void> _sendCommand() async {
-    // 模拟一条命令：帧头 0xAA 0x01 校验位
-    final data = <int>[0xAA, 0x01, 0x55];
-    _log('发送命令: ${hexString(data)}');
-    await _manager.sendRaw(
-      data,
+    final text = _commandController.text.trim();
+    if (text.isEmpty) {
+      _log('发送内容为空，请先输入文本');
+      return;
+    }
+    _log('发送命令(原始字符串): "$text" (${utf8.encode(text).length} B)');
+    await _manager.sendRawString(
+      text,
       role: BluetoothCharacteristicRole.commandWrite,
     );
   }
 
   Future<void> _sendBulkData() async {
-    // 模拟 20KB 数据（可靠传输 + 断点续传）
-    final data = Uint8List.fromList(
-      List.generate(20 * 1024, (i) => i % 256),
-    );
-    _log('可靠传输开始: ${data.length} 字节（ACK 窗口=6, 重试=3, 断点续传）');
-    await _manager.sendReliableData(
-      data,
+    // 基于输入框文本重复填充为 ~20KB 文本，演示可靠传输 + 断点续传
+    final base = _commandController.text.trim();
+    final source = base.isEmpty ? 'BLE 可靠传输演示文本。' : base;
+    final builder = StringBuffer();
+    while (builder.length < 20 * 1024) {
+      builder.write('[$source]');
+    }
+    final text = builder.toString().substring(0, 20 * 1024);
+    _log('可靠传输开始: ${utf8.encode(text).length} 字节文本'
+        '（ACK 窗口=6, 重试=3, 断点续传）');
+    await _manager.sendReliableString(
+      text,
       options: const BluetoothTransferOptions(
         role: BluetoothCharacteristicRole.dataWrite,
         reliability: BluetoothTransferReliability.applicationAck,
@@ -171,15 +185,6 @@ class _BleDebugPageState extends State<BleDebugPage>
       _logs.insert(0, line);
       if (_logs.length > 200) _logs.removeRange(200, _logs.length);
     });
-  }
-
-  static String hexString(List<int> data) {
-    final buffer = StringBuffer();
-    for (final byte in data) {
-      buffer.write(byte.toRadixString(16).padLeft(2, '0').toUpperCase());
-      buffer.write(' ');
-    }
-    return buffer.toString().trim();
   }
 
   static String _shortId(String id) => id.length > 8
@@ -248,10 +253,10 @@ class _BleDebugPageState extends State<BleDebugPage>
 
   @override
   void onDataReceived(List<int> data, BluetoothCharacteristicRole? role) {
-    final preview = data.length > 24
-        ? '${hexString(data.take(24).toList())} … (${data.length} B)'
-        : hexString(data);
-    _log('收到数据[${role?.name ?? "?"}]: $preview');
+    // 收到的数据以字符串形式展示（UTF-8 解码，非文本字节容错）
+    final text = utf8.decode(data, allowMalformed: true);
+    final preview = text.length > 32 ? '${text.substring(0, 32)}…' : text;
+    _log('收到数据[${role?.name ?? "?"}]: "$preview" (${data.length} B)');
   }
 
   @override
@@ -384,7 +389,7 @@ class _BleDebugPageState extends State<BleDebugPage>
     );
   }
 
-  /// 操作区：扫描 / 断开 / 发命令 / 发大数据 / 读取。
+  /// 操作区：发送内容输入框 + 扫描 / 断开 / 发字符串 / 发大数据文本 / 读取。
   Widget _buildActionBar() {
     final isScanning = _connectionState is ScanningState;
     final isReady = _connectionState is ReadyState;
@@ -394,34 +399,51 @@ class _BleDebugPageState extends State<BleDebugPage>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ActionChip(
-            avatar: Icon(isScanning ? Icons.stop : Icons.search),
-            label: Text(isScanning ? '停止扫描' : '扫描'),
-            onPressed: _toggleScan,
+          // 发送内容输入框（UTF-8 编码直接发送）
+          TextField(
+            controller: _commandController,
+            maxLines: 2,
+            minLines: 1,
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: '输入要发送的文本（UTF-8 编码）',
+              border: OutlineInputBorder(),
+            ),
           ),
-          ActionChip(
-            avatar: const Icon(Icons.link_off),
-            label: const Text('断开'),
-            onPressed: canDisconnect ? _disconnect : null,
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.send),
-            label: const Text('发命令'),
-            onPressed: isReady ? _sendCommand : null,
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.data_object),
-            label: const Text('发大数据(20KB)'),
-            onPressed: isReady ? _sendBulkData : null,
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.download),
-            label: const Text('读取'),
-            onPressed: isReady ? _read : null,
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                avatar: Icon(isScanning ? Icons.stop : Icons.search),
+                label: Text(isScanning ? '停止扫描' : '扫描'),
+                onPressed: _toggleScan,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.link_off),
+                label: const Text('断开'),
+                onPressed: canDisconnect ? _disconnect : null,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.send),
+                label: const Text('发字符串'),
+                onPressed: isReady ? _sendCommand : null,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.data_object),
+                label: const Text('发大数据(20KB文本)'),
+                onPressed: isReady ? _sendBulkData : null,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.download),
+                label: const Text('读取'),
+                onPressed: isReady ? _read : null,
+              ),
+            ],
           ),
         ],
       ),

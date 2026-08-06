@@ -108,7 +108,7 @@ void main() {
     // 操作区按钮
     expect(find.text('扫描'), findsOneWidget);
     expect(find.text('断开'), findsOneWidget);
-    expect(find.text('发命令'), findsOneWidget);
+    expect(find.text('发字符串'), findsOneWidget);
     // 状态卡片
     expect(find.textContaining('蓝牙:'), findsOneWidget);
     expect(find.textContaining('未连接设备'), findsOneWidget);

@@ -36,7 +36,7 @@ class TransferSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SectionCard(
       title: '数据传输',
-      subtitle: 'sendRaw / sendReliableData / readValue / cancelTransfer',
+      subtitle: 'sendRawString / sendReliableString / readValue / cancelTransfer',
       icon: Icons.swap_horiz,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,11 +55,11 @@ class TransferSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // 数据输入
+          // 数据输入（字符串直接发送，UTF-8 编码）
           TextField(
             controller: dataController,
             decoration: const InputDecoration(
-              labelText: '发送数据',
+              labelText: '发送文本（UTF-8）',
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -73,7 +73,7 @@ class TransferSection extends StatelessWidget {
               FilledButton.icon(
                 onPressed: hasWriteRole ? onSendRaw : null,
                 icon: const Icon(Icons.flash_on),
-                label: const Text('裸数据'),
+                label: const Text('发字符串'),
               ),
               FilledButton.tonalIcon(
                 onPressed: hasWriteRole ? onSendReliable : null,

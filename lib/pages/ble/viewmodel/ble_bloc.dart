@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:ble_plugin/ble_plugin.dart';
 import 'package:bloc/bloc.dart';
@@ -122,16 +122,18 @@ class BleBloc extends Bloc<BleEvent, BleState> {
     BleSendRawRequested event,
     Emitter<BleState> emit,
   ) async {
-    _log(emit, '发送裸数据: ${event.data.length} bytes');
-    await _manager.sendRaw(event.data);
+    final bytes = utf8.encode(event.text);
+    _log(emit, '发送字符串: "${event.text}" (${bytes.length} bytes)');
+    await _manager.sendRawString(event.text);
   }
 
   Future<void> _onSendReliableRequested(
     BleSendReliableRequested event,
     Emitter<BleState> emit,
   ) async {
-    _log(emit, '发送可靠数据: ${event.data.length} bytes');
-    final id = await _manager.sendReliableData(event.data);
+    final bytes = utf8.encode(event.text);
+    _log(emit, '发送可靠字符串: "${event.text}" (${bytes.length} bytes)');
+    final id = await _manager.sendReliableString(event.text);
     if (id != null) {
       emit(state.copyWith(activeTransferId: id));
       _log(emit, '传输已创建: $id');

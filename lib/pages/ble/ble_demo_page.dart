@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -46,9 +44,6 @@ class _BleViewState extends State<_BleView> {
     _dataController.dispose();
     super.dispose();
   }
-
-  Uint8List get _dataBytes =>
-      Uint8List.fromList(_dataController.text.codeUnits);
 
   void _dispatch(BuildContext context, BleEvent event) =>
       context.read<BleBloc>().add(event);
@@ -97,9 +92,9 @@ class _BleViewState extends State<_BleView> {
                   hasReadRole: state.hasReadRole,
                   dataController: _dataController,
                   onSendRaw: () => _dispatch(
-                      context, BleSendRawRequested(_dataBytes)),
+                      context, BleSendRawRequested(_dataController.text)),
                   onSendReliable: () => _dispatch(
-                      context, BleSendReliableRequested(_dataBytes)),
+                      context, BleSendReliableRequested(_dataController.text)),
                   onCancelTransfer: () =>
                       _dispatch(context, const BleCancelTransferRequested()),
                   onReadValue: () =>
