@@ -6,7 +6,7 @@ import '../features/login/bloc_login/view/bloc_login_page.dart';
 import '../features/login/riverpod_login/view/riverpod_login_page.dart';
 import '../pages/animation_interaction_page.dart';
 import '../pages/basic_widgets_page.dart';
-import '../pages/ble_demo_page.dart';
+import '../pages/ble/ble_demo_page.dart';
 import '../pages/bloc/bloc_demo_data.dart';
 import '../pages/bloc/bloc_home_page.dart';
 import '../pages/form_widgets_page.dart';
