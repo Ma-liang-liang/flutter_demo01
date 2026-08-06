@@ -6,6 +6,8 @@ import '../features/login/bloc_login/view/bloc_login_page.dart';
 import '../features/login/riverpod_login/view/riverpod_login_page.dart';
 import '../pages/animation_interaction_page.dart';
 import '../pages/basic_widgets_page.dart';
+import '../pages/bloc/bloc_demo_data.dart';
+import '../pages/bloc/bloc_home_page.dart';
 import '../pages/form_widgets_page.dart';
 import '../pages/layout_widgets_page.dart';
 import '../pages/learn/topic_list_page.dart';
@@ -33,6 +35,9 @@ class AppRoutePath {
 
   /// Riverpod 状态管理模块
   static const riverpod = '/riverpod';
+
+  /// Bloc 状态管理模块
+  static const bloc = '/bloc';
 
   /// 登录对比模块（Bloc vs Riverpod 两套实现）
   static const login = '/login';
@@ -69,6 +74,12 @@ class AppRouteName {
 
   /// Riverpod 模块 · 三级页面（具体演示）
   static const riverpodDemo = 'riverpodDemo';
+
+  /// Bloc 模块 · 二级页面（演示列表）
+  static const blocHome = 'blocHome';
+
+  /// Bloc 模块 · 三级页面（具体演示）
+  static const blocDemo = 'blocDemo';
 
   /// 登录对比 · Bloc 版登录页面
   static const loginBloc = 'loginBloc';
@@ -280,6 +291,31 @@ GoRouter createAppRouter() => GoRouter(
           name: AppRouteName.networkDemo,
           path: AppRoutePath.networkDemo,
           builder: (context, state) => const NetworkDemoPage(),
+        ),
+
+        /// 二级页面：Bloc 模块列表
+        GoRoute(
+          name: AppRouteName.blocHome,
+          path: AppRoutePath.bloc,
+          builder: (context, state) => const BlocHomePage(),
+          routes: [
+            /// 三级页面：具体演示页面
+            GoRoute(
+              name: AppRouteName.blocDemo,
+              path: ':demoId',
+              builder: (context, state) {
+                final demoId = state.pathParameters['demoId']!;
+                final demo = BlocDemoData.byId(demoId);
+                if (demo == null) {
+                  return Scaffold(
+                    appBar: AppBar(title: const Text('未找到')),
+                    body: const Center(child: Text('未找到对应的演示页面')),
+                  );
+                }
+                return demo.demoPage;
+              },
+            ),
+          ],
         ),
 
         /// 登录对比模块：Bloc 版登录页面

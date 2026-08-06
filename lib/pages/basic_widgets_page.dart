@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
 import '../router/navigators/basic_navigator.dart';
+import '../router/navigators/bloc_navigator.dart';
 import '../router/navigators/login_navigator.dart';
 import '../router/navigators/network_navigator.dart';
 import '../router/navigators/riverpod_navigator.dart';
@@ -28,6 +29,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _CardsSection(),
         _LoginCompareSection(),
         _RiverpodSection(),
+        _BlocSection(),
         _CustomNavBarSection(),
         _NetworkSection(),
       ],
@@ -399,6 +401,50 @@ class _RiverpodSection extends StatelessWidget {
           const SizedBox(width: 8),
           FilledButton(
             onPressed: () => context.navToRiverpodHome(),
+            child: const Text('进入学习'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bloc 状态管理模块入口
+// ---------------------------------------------------------------------------
+class _BlocSection extends StatelessWidget {
+  const _BlocSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'Bloc 状态管理',
+      subtitle: 'Cubit / 事件驱动 / 异步三态 / Listener / 依赖注入 / Stream',
+      icon: Icons.hub,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.hub,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '以 MVVM 分层组织代码，通过 6 个演示页面掌握 Bloc / Cubit 的常用用法，每个页面都附带原理讲解。',
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => context.navToBlocHome(),
             child: const Text('进入学习'),
           ),
         ],
