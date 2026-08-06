@@ -1,25 +1,11 @@
-name: flutter_demo01
-description: "A new Flutter test project."
+name: ble_plugin_example
+description: "Demonstrates how to use the ble_plugin plugin."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-# The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
-# followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
-# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
-
 environment:
-  sdk: ^3.12.0
+  sdk: ^3.12.2
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -31,64 +17,21 @@ dependencies:
   flutter:
     sdk: flutter
 
+  ble_plugin:
+    # When depending on this package from a real application you should use:
+    #   ble_plugin: ^x.y.z
+    # See https://dart.dev/tools/pub/dependencies#version-constraints
+    # The example app is bundled with the plugin so we use a path dependency on
+    # the parent directory to use the current plugin's version.
+    path: ../
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # --- 本地插件（学习 MethodChannel / Platform Channel 用）---
-  # 源码位于 plugins/my_plugin，修改插件后需重新运行生效
-  my_plugin:
-    path: plugins/my_plugin
-
-  # --- 常用第三方包 ---
-  # 网络请求
-  dio: ^5.7.0
-
-  # --- Dio 业务层网络封装（本地 package）---
-  # 源码位于 plugins/dio_network，提供统一配置 / 公参 / 业务拦截 / 泛型转模型
-  dio_network:
-    path: plugins/dio_network
-
-  # --- BLE 蓝牙插件（本地 package）---
-  # 源码位于 plugins/ble_plugin，业务逻辑全部在 Dart 层（协议 / 状态机 / 重连），
-  # 原生端（iOS / Android）只做底层桥接
-  ble_plugin:
-    path: plugins/ble_plugin
-
-  # 状态管理
-  provider: ^6.1.2
-
-  # Riverpod 状态管理（声明式依赖注入 + 响应式状态）
-  flutter_riverpod: ^2.6.1
-
-  # 本地存储
-  shared_preferences: ^2.3.2
-
-  # 图片缓存加载
-  cached_network_image: ^3.4.1
-
-  # SVG 支持
-  flutter_svg: ^2.0.10
-
-  # 打开 URL / 外部应用
-  url_launcher: ^6.3.1
-
-  # 文件路径
-  path_provider: ^2.1.4
-
-  # 国际化 / 日期格式化
-  intl: ^0.19.0
-
-  # UUID 生成
-  uuid: ^4.5.1
-
-  # 声明式路由（底部导航 + 嵌套子页面栈）
-  go_router: ^14.6.0
-  flutter_bloc: ^9.1.1
-  equatable: ^2.1.0
-  bloc: ^9.2.1
-
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
 

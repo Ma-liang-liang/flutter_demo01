@@ -6,6 +6,7 @@ import '../features/login/bloc_login/view/bloc_login_page.dart';
 import '../features/login/riverpod_login/view/riverpod_login_page.dart';
 import '../pages/animation_interaction_page.dart';
 import '../pages/basic_widgets_page.dart';
+import '../pages/ble_demo_page.dart';
 import '../pages/bloc/bloc_demo_data.dart';
 import '../pages/bloc/bloc_home_page.dart';
 import '../pages/form_widgets_page.dart';
@@ -44,6 +45,9 @@ class AppRoutePath {
 
   /// 网络组件演示页面
   static const networkDemo = '/network_demo';
+
+  /// BLE 蓝牙插件演示页面
+  static const bleDemo = '/ble_demo';
 }
 
 /// 路由名称常量（用于 context.pushNamed / context.goNamed）
@@ -89,6 +93,9 @@ class AppRouteName {
 
   /// 网络组件演示页面
   static const networkDemo = 'networkDemo';
+
+  /// BLE 蓝牙插件演示页面
+  static const bleDemo = 'bleDemo';
 }
 
 /// 底部导航 Tab 配置
@@ -291,6 +298,13 @@ GoRouter createAppRouter() => GoRouter(
           name: AppRouteName.networkDemo,
           path: AppRoutePath.networkDemo,
           builder: (context, state) => const NetworkDemoPage(),
+        ),
+
+        /// 二级页面：BLE 蓝牙插件演示
+        GoRoute(
+          name: AppRouteName.bleDemo,
+          path: AppRoutePath.bleDemo,
+          builder: (context, state) => const BleDemoPage(),
         ),
 
         /// 二级页面：Bloc 模块列表

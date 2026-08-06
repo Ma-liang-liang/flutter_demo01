@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/learning_plan_data.dart';
 import '../router/navigators/basic_navigator.dart';
+import '../router/navigators/ble_navigator.dart';
 import '../router/navigators/bloc_navigator.dart';
 import '../router/navigators/login_navigator.dart';
 import '../router/navigators/network_navigator.dart';
@@ -32,6 +33,7 @@ class BasicWidgetsPage extends StatelessWidget {
         _BlocSection(),
         _CustomNavBarSection(),
         _NetworkSection(),
+        _BleSection(),
       ],
     );
   }
@@ -517,6 +519,51 @@ class _CustomNavBarSection extends StatelessWidget {
               icon: const Icon(Icons.open_in_new),
               label: const Text('查看导航条演示'),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BLE 蓝牙插件演示入口
+// ---------------------------------------------------------------------------
+class _BleSection extends StatelessWidget {
+  const _BleSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'ble_plugin 蓝牙插件',
+      subtitle: '扫描 / 连接 / 可靠传输 / ACK 窗口 / 断点续传 / 自动重连',
+      icon: Icons.bluetooth,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.bluetooth,
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '跨平台 BLE 插件：应用层协议帧（CRC32 + ACK 窗口）、自动重连（指数退避）、'
+              '断点续传、运行时指标统计。业务逻辑全在 Dart 层，原生只做桥接。',
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => context.navToBleDemo(),
+            child: const Text('进入演示'),
           ),
         ],
       ),
