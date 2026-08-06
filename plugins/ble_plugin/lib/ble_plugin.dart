@@ -11,8 +11,10 @@
 /// final manager = BluetoothManager.shared;
 /// await manager.init();
 ///
-/// // 2. 监听事件
-/// manager.addDelegate(myDelegate);
+/// // 2. 监听事件（Stream 订阅即得当前值）
+/// manager.connectionStateStream.listen((state) { ... });
+/// manager.dataStream.listen((data) { ... });
+/// manager.errorStream.listen((error) { ... });
 ///
 /// // 3. 配置设备协议画像（可选，默认通用 Demo 模式）
 /// await manager.updateConfiguration(BluetoothTransferConfiguration(
@@ -45,7 +47,6 @@ library;
 
 export 'src/ble/ble_errors.dart';
 export 'src/ble/ble_manager.dart';
-export 'src/ble/ble_manager_delegate.dart';
 export 'src/ble/ble_models.dart';
 export 'src/ble/ble_profile.dart';
 export 'src/ble/ble_protocol.dart';

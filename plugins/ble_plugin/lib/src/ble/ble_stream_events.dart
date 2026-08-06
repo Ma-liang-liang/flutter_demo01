@@ -6,11 +6,6 @@
 ///
 /// - [BluetoothDataReceived] —— dataStream 的值（收到外设数据）
 /// - [BluetoothTransferEvent] —— transferEventsStream 的值（传输生命周期）
-///
-/// **与 Delegate 的关系：**
-/// Stream 是独立的一等 API，事件源直接来自管理器内部状态变更，
-/// 不依赖 [BluetoothManagerDelegate]；后者仅为过渡期兼容而保留，
-/// 后续可整体移除。
 library;
 
 import 'dart:typed_data';

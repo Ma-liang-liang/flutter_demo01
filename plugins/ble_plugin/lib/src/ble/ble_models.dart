@@ -70,6 +70,12 @@ class BluetoothTransferConfiguration {
   /// 设为 0 则禁用节流（每次 ACK 都回调）。
   final int progressThrottleMs;
 
+  /// 是否输出插件调试日志（默认关闭，零输出）。
+  ///
+  /// 线上包默认无任何日志（debugPrint 在 release 构建下本身也是 no-op）；
+  /// 排查问题时临时置为 true，可在控制台看到关键节点日志。
+  final bool enableLogging;
+
   const BluetoothTransferConfiguration({
     this.profile = BluetoothDeviceProfile.genericDemo,
     this.scanTimeout = 10,
@@ -78,6 +84,7 @@ class BluetoothTransferConfiguration {
     this.reconnectBaseDelay = 1,
     this.restorationIdentifier = 'com.example.ble_plugin.central.restore',
     this.progressThrottleMs = 100,
+    this.enableLogging = false,
   });
 
   /// 复制当前配置并替换指定字段。
@@ -89,6 +96,7 @@ class BluetoothTransferConfiguration {
     double? reconnectBaseDelay,
     String? restorationIdentifier,
     int? progressThrottleMs,
+    bool? enableLogging,
   }) {
     return BluetoothTransferConfiguration(
       profile: profile ?? this.profile,
@@ -99,6 +107,7 @@ class BluetoothTransferConfiguration {
       restorationIdentifier:
           restorationIdentifier ?? this.restorationIdentifier,
       progressThrottleMs: progressThrottleMs ?? this.progressThrottleMs,
+      enableLogging: enableLogging ?? this.enableLogging,
     );
   }
 }

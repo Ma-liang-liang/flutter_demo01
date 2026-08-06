@@ -10,7 +10,6 @@
 ///    - [sendReliableData]: 可靠传输，含包头+CRC+ACK窗口+超时重试
 ///    - [readValue]: 读取外设特征值
 /// 4. 状态管理 —— 维护连接状态机，通过响应式 Stream 通知外部
-///    （delegate 为过渡兼容，后续将移除）
 /// 5. 指标统计 —— 记录连接耗时、收发字节数、重连次数等
 /// 6. 断点续传 —— supportsResume 开启后，断连自动保存进度，重连后恢复
 ///
@@ -27,10 +26,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../platform/ble_bridge.dart' show BleBridge, PlatformBridgeException;
 import '../platform/ble_bridge_events.dart';
 import 'ble_errors.dart';
-import 'ble_manager_delegate.dart';
 import 'ble_models.dart';
 import 'ble_profile.dart';
 import 'ble_protocol.dart';
@@ -41,10 +41,9 @@ part 'ble_manager_transfer.dart';
 
 /// 蓝牙核心管理器（单例）。
 ///
-/// **事件通知（Stream 优先）：**
+/// **事件通知（Stream）：**
 /// 以响应式 Stream 对外通知（参考 flutter_blue_plus 设计风格）：
-/// 订阅即得当前值、流永不主动关闭。事件源直接来自内部状态变更，
-/// 不依赖 [BluetoothManagerDelegate]（后者仅为过渡期兼容保留）。
+/// 订阅即得当前值、流永不主动关闭。事件源直接来自内部状态变更。
 ///
 /// 主要流：
 /// - [adapterStateStream]：适配器状态
@@ -129,11 +128,7 @@ class BluetoothManager {
   /// 连接状态机（内部存储）。
   BluetoothConnectionState _connectionState = const IdleState();
 
-  // MARK: 弱引用 delegate 表
-
-  final List<WeakReference<BluetoothManagerDelegate>> _delegates = [];
-
-  // MARK: Stream 控制器（独立事件源，不依赖 delegate）
+  // MARK: Stream 控制器（唯一事件源）
 
   final _ValueStreamController<BleAdapterState> _adapterStateStreamCtrl =
       _ValueStreamController(initialValue: BleAdapterState.unknown);
@@ -268,35 +263,6 @@ class BluetoothManager {
     await _transferEventsStreamCtrl.close();
   }
 
-  // MARK: - Delegate 管理
-
-  /// 添加监听者（弱引用持有，对象被回收后自动失效）。
-  void addDelegate(BluetoothManagerDelegate delegate) {
-    _delegates.add(WeakReference(delegate));
-    _compactDelegates();
-  }
-
-  /// 移除监听者。
-  void removeDelegate(BluetoothManagerDelegate delegate) {
-    _delegates.removeWhere((ref) => ref.target == delegate);
-  }
-
-  /// 清理已失效的弱引用，并返回存活的 delegate 列表。
-  List<BluetoothManagerDelegate> get _liveDelegates {
-    final live = <BluetoothManagerDelegate>[];
-    _delegates.removeWhere((ref) {
-      final target = ref.target;
-      if (target == null) return true; // GC 后自动移除
-      live.add(target);
-      return false;
-    });
-    return live;
-  }
-
-  void _compactDelegates() {
-    _delegates.removeWhere((ref) => ref.target == null);
-  }
-
   // MARK: - 配置
 
   /// 更新传输配置（通过串行队列生效，线程安全）。
@@ -306,6 +272,17 @@ class BluetoothManager {
     await _enqueue(() async {
       _configuration = configuration;
     });
+  }
+
+  // MARK: - 调试日志
+
+  /// 输出插件调试日志（受 [BluetoothTransferConfiguration.enableLogging] 控制）。
+  ///
+  /// 默认关闭零输出；debugPrint 在 release 构建下本身也是 no-op，
+  /// 双重保障线上包无任何日志。排查问题时将 enableLogging 置为 true。
+  void _log(String message) {
+    if (!_configuration.enableLogging) return;
+    debugPrint('[ble_plugin] $message');
   }
 
   // MARK: - 扫描
@@ -336,6 +313,7 @@ class BluetoothManager {
         _setConnectionState(const IdleState());
         return;
       }
+      _log('开始扫描 (过滤: ${targetServices ?? '全部'})');
       _scheduleScanTimeout(
         Duration(milliseconds:
             ((timeout ?? _configuration.scanTimeout) * 1000).round()),
@@ -550,6 +528,7 @@ class BluetoothManager {
       clearReadyAt: true,
     );
     _setConnectionState(ConnectingState(device.identifier));
+    _log('连接设备: ${device.identifier}');
     try {
       await bridge.connect(
         device.identifier,
@@ -567,6 +546,7 @@ class BluetoothManager {
     Timer(timeout, () {
       _enqueue(() async {
         await bridge.stopScan();
+        _log('扫描超时，自动停止');
         if (_connectionState is ScanningState) {
           _setConnectionState(const IdleState());
         }
@@ -609,6 +589,7 @@ class BluetoothManager {
     _pendingReconnectTimer = Timer(
       Duration(milliseconds: (delay * 1000).round()),
       () {
+        _log('执行重连 (第 $_reconnectAttempts 次)');
         _enqueue(() => _connectInternal(device));
       },
     );
@@ -714,6 +695,7 @@ class BluetoothManager {
       _notifyMetrics();
     });
     _setConnectionState(ReadyState(deviceId));
+    _log('设备就绪: $deviceId');
     _notifyReadyRoles();
     _notifyMetrics();
     // 主动请求更大的 MTU（Android 生效；iOS 自动协商，返回当前值）。
@@ -737,9 +719,6 @@ class BluetoothManager {
         case BleStateChangedEvent(:final state):
           _adapterState = state;
           _adapterStateStreamCtrl.add(state);
-          for (final delegate in _liveDelegates) {
-            delegate.onAdapterStateChanged(state);
-          }
         case BleDeviceDiscoveredEvent(:final deviceId, :final name, :final rssi):
           _metrics = _metrics.copyWith(lastRSSI: rssi);
           _discoveredMap[deviceId] = BluetoothDevice(
@@ -784,6 +763,7 @@ class BluetoothManager {
             maximumWriteLength:
                 mtu > 0 ? mtu - 3 : _metrics.maximumWriteLength,
           );
+          _log('MTU 协商: $mtu');
           _notifyMetrics();
         case BleStateRestoredEvent(:final deviceId):
           // App 被系统杀掉后恢复连接：重新走服务发现流程
@@ -795,9 +775,6 @@ class BluetoothManager {
           _connectedDevice = device;
           _currentDeviceStreamCtrl.add(device);
           _setConnectionState(DiscoveringState(deviceId));
-          for (final delegate in _liveDelegates) {
-            delegate.onDeviceConnected(device);
-          }
           await bridge.discoverServices(
             deviceId,
             serviceUuids: _configuration.profile.serviceUuids,
@@ -817,6 +794,7 @@ class BluetoothManager {
         // 重置重连计数
         _reconnectAttempts = 0;
         _metrics = _metrics.copyWith(reconnectAttempts: 0);
+        _log('已连接: $deviceId');
         final device = _discoveredMap[deviceId] ??
             BluetoothDevice(identifier: deviceId, name: 'Bluetooth Device');
         _connectedDevice = device;
@@ -824,9 +802,6 @@ class BluetoothManager {
         _currentDeviceStreamCtrl.add(device);
         // 进入服务发现阶段
         _setConnectionState(DiscoveringState(deviceId));
-        for (final delegate in _liveDelegates) {
-          delegate.onDeviceConnected(device);
-        }
         await bridge.discoverServices(
           deviceId,
           serviceUuids: _configuration.profile.serviceUuids,
@@ -834,6 +809,7 @@ class BluetoothManager {
       case 'disconnected':
         await _handleDisconnected(deviceId, error);
       case 'failed':
+        _log('连接失败: $error');
         _notifyFailure(_connectionFailedError(error));
         _scheduleReconnect();
     }
@@ -841,7 +817,6 @@ class BluetoothManager {
 
   /// 处理断开。
   Future<void> _handleDisconnected(String deviceId, String? error) async {
-    final device = _connectedDevice;
     // 清理特征缓存
     _characteristicsByRole.clear();
     _characteristicRolesByUuid.clear();
@@ -867,18 +842,12 @@ class BluetoothManager {
             ackedOffset: pausedOffset,
           ),
         );
-        for (final delegate in _liveDelegates) {
-          delegate.onTransferPaused(pausedId, pausedOffset);
-        }
       } else {
         // 不支持续传或主动断开 → 直接取消
         _cancelActiveTransfer();
       }
     }
     _setConnectionState(DisconnectedState(deviceId));
-    for (final delegate in _liveDelegates) {
-      delegate.onDeviceDisconnected(device, error);
-    }
 
     if (error != null && _shouldAutoReconnect) {
       // 异常断开且允许重连 → 触发自动重连（保留设备引用供重连使用）
@@ -946,9 +915,6 @@ class BluetoothManager {
         role: role,
         deviceId: deviceId,
       ));
-      for (final delegate in _liveDelegates) {
-        delegate.onDataReceived(frame.payload, role);
-      }
       _notifyMetrics();
       return;
     }
@@ -959,9 +925,6 @@ class BluetoothManager {
       role: role,
       deviceId: deviceId,
     ));
-    for (final delegate in _liveDelegates) {
-      delegate.onDataReceived(value, role);
-    }
     _notifyMetrics();
   }
 
@@ -986,25 +949,19 @@ class BluetoothManager {
 
   // MARK: - 内部：状态管理
 
-  /// 设置连接状态并通知 delegate。
+  /// 设置连接状态并推送到 connectionStateStream。
   void _setConnectionState(BluetoothConnectionState state) {
     _connectionState = state;
     _connectionStateStreamCtrl.add(state);
-    for (final delegate in _liveDelegates) {
-      delegate.onConnectionStateChanged(state);
-    }
   }
 
   // MARK: - 内部：通知方法
 
-  /// 通知 delegate 设备列表更新（按 RSSI 降序排列，信号强的在前）。
+  /// 推送设备列表更新（按 RSSI 降序排列，信号强的在前）。
   void _notifyDiscoveredDevices() {
     final devices = _discoveredMap.values.toList()
       ..sort((a, b) => b.rssi.compareTo(a.rssi));
     _scanResultsStreamCtrl.add(devices);
-    for (final delegate in _liveDelegates) {
-      delegate.onDevicesDiscovered(devices);
-    }
   }
 
   /// 将连接失败事件映射为具体错误类型。
@@ -1021,16 +978,13 @@ class BluetoothManager {
     return BluetoothError.platformError(error);
   }
 
-  /// 通知 delegate 特征角色就绪。
+  /// 推送特征角色就绪。
   void _notifyReadyRoles() {
     final roles = _characteristicsByRole.keys.toSet();
     _characteristicRolesStreamCtrl.add(roles);
-    for (final delegate in _liveDelegates) {
-      delegate.onCharacteristicsReady(roles);
-    }
   }
 
-  /// 通知 delegate 传输进度（节流：最少间隔由配置决定，传输完成时立即通知）。
+  /// 通知传输进度（节流：最少间隔由配置决定，传输完成时立即通知）。
   void _notifyProgress() {
     final transfer = _activeTransfer;
     if (transfer == null) return;
@@ -1051,26 +1005,18 @@ class BluetoothManager {
       totalBytes: transfer.totalPayloadBytes,
     );
     _progressStreamCtrl.add(progress);
-    for (final delegate in _liveDelegates) {
-      delegate.onTransferProgress(progress);
-    }
   }
 
-  /// 通知 delegate 指标更新。
+  /// 推送指标更新。
   void _notifyMetrics() {
     final snapshot = _metrics;
     _metricsStreamCtrl.add(snapshot);
-    for (final delegate in _liveDelegates) {
-      delegate.onMetricsUpdated(snapshot);
-    }
   }
 
-  /// 通知 delegate 发生错误。
+  /// 推送错误事件。
   void _notifyFailure(BluetoothError error) {
+    _log('错误: ${error.type.name} — ${error.message}');
     _errorStreamCtrl.add(error);
-    for (final delegate in _liveDelegates) {
-      delegate.onError(error);
-    }
   }
 
   // MARK: - 工具方法

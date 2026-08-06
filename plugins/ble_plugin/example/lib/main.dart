@@ -4,6 +4,7 @@
 /// 顶部连接与状态 → 操作区 → 附近设备列表 → 实时日志。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:ble_plugin/ble_plugin.dart';
@@ -38,11 +39,13 @@ class BleDebugPage extends StatefulWidget {
   State<BleDebugPage> createState() => _BleDebugPageState();
 }
 
-/// 页面状态：同时实现 [BluetoothManagerDelegate]，直接消费蓝牙事件。
-class _BleDebugPageState extends State<BleDebugPage>
-    with BluetoothManagerDelegate {
+/// 页面状态：订阅 [BluetoothManager] 的响应式 Stream 消费蓝牙事件。
+class _BleDebugPageState extends State<BleDebugPage> {
   /// 蓝牙管理器单例。
   final BluetoothManager _manager = BluetoothManager.shared;
+
+  /// Stream 订阅列表（dispose 时统一取消）。
+  final List<StreamSubscription> _subscriptions = [];
 
   // MARK: - UI 状态
 
@@ -79,15 +82,86 @@ class _BleDebugPageState extends State<BleDebugPage>
   @override
   void initState() {
     super.initState();
-    _manager.addDelegate(this);
+    _subscribeStreams();
     _initialize();
   }
 
   @override
   void dispose() {
     _commandController.dispose();
-    _manager.removeDelegate(this);
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
     super.dispose();
+  }
+
+  /// 订阅蓝牙管理器的事件流（订阅即得当前值，页面重建不丢状态）。
+  void _subscribeStreams() {
+    _subscriptions.addAll([
+      _manager.adapterStateStream.listen((state) {
+        if (!mounted) return;
+        setState(() => _adapterState = state);
+        _log('蓝牙状态: ${state.name}');
+      }),
+      _manager.connectionStateStream.listen((state) {
+        if (!mounted) return;
+        setState(() => _connectionState = state);
+        _log('连接状态: $_stateText');
+      }),
+      _manager.scanResultsStream.listen((devices) {
+        if (!mounted) return;
+        setState(() => _devices = devices);
+      }),
+      _manager.currentDeviceStream.listen((device) {
+        if (!mounted) return;
+        setState(() {
+          _connectedDevice = device;
+          if (device == null) {
+            // 断开：清理就绪角色与传输进度
+            _readyRoles = const {};
+            _progress = null;
+          }
+        });
+        _log(device == null ? '已断开连接' : '已连接: ${device.name}');
+      }),
+      _manager.characteristicRolesStream.listen((roles) {
+        if (!mounted) return;
+        setState(() => _readyRoles = roles);
+        _log('特征就绪: ${roles.map((r) => r.name).join(", ")}');
+      }),
+      _manager.dataStream.listen((received) {
+        // 收到的数据以字符串形式展示（UTF-8 解码，非文本字节容错）
+        final data = received.data;
+        final text = utf8.decode(data, allowMalformed: true);
+        final preview = text.length > 32 ? '${text.substring(0, 32)}…' : text;
+        _log('收到数据[${received.role?.name ?? "?"}]: '
+            '"$preview" (${data.length} B)');
+      }),
+      _manager.progressStream.listen((progress) {
+        if (!mounted) return;
+        setState(() => _progress = progress);
+      }),
+      _manager.transferEventsStream.listen((event) {
+        switch (event) {
+          case BluetoothTransferCompleted():
+            if (!mounted) return;
+            setState(() => _progress = null);
+            _log('传输完成: ${_shortId(event.transferId)}');
+          case BluetoothTransferPaused():
+            _log('传输暂停(断连): ${_shortId(event.transferId)} '
+                '@ ${event.ackedOffset} B');
+          case BluetoothTransferResumed():
+            _log('传输恢复: ${_shortId(event.transferId)} '
+                '@ ${event.fromOffset} B');
+        }
+      }),
+      _manager.metricsStream.listen((metrics) {
+        if (!mounted) return;
+        setState(() => _metrics = metrics);
+      }),
+      _manager.errorStream.listen((error) => _log('错误: $error')),
+    ]);
   }
 
   /// 初始化并启动扫描（示例 App 启动即进入调试模式）。
@@ -203,95 +277,6 @@ class _BleDebugPageState extends State<BleDebugPage>
         ReconnectingState(:final attempt) => '重连中 (第 $attempt 次)',
         FailedState(:final message) => '失败: $message',
       };
-
-  // MARK: - BluetoothManagerDelegate 实现
-
-  @override
-  void onAdapterStateChanged(BleAdapterState state) {
-    if (!mounted) return;
-    setState(() => _adapterState = state);
-    _log('蓝牙状态: ${state.name}');
-  }
-
-  @override
-  void onConnectionStateChanged(BluetoothConnectionState state) {
-    if (!mounted) return;
-    setState(() => _connectionState = state);
-    _log('连接状态: $_stateText');
-  }
-
-  @override
-  void onDevicesDiscovered(List<BluetoothDevice> devices) {
-    if (!mounted) return;
-    setState(() => _devices = devices);
-  }
-
-  @override
-  void onDeviceConnected(BluetoothDevice device) {
-    if (!mounted) return;
-    setState(() => _connectedDevice = device);
-    _log('已连接: ${device.name}');
-  }
-
-  @override
-  void onDeviceDisconnected(BluetoothDevice? device, Object? error) {
-    if (!mounted) return;
-    setState(() {
-      _connectedDevice = null;
-      _readyRoles = const {};
-      _progress = null;
-    });
-    _log(error == null ? '已断开: ${device?.name ?? ""}' : '断开(异常): $error');
-  }
-
-  @override
-  void onCharacteristicsReady(Set<BluetoothCharacteristicRole> roles) {
-    if (!mounted) return;
-    setState(() => _readyRoles = roles);
-    _log('特征就绪: ${roles.map((r) => r.name).join(", ")}');
-  }
-
-  @override
-  void onDataReceived(List<int> data, BluetoothCharacteristicRole? role) {
-    // 收到的数据以字符串形式展示（UTF-8 解码，非文本字节容错）
-    final text = utf8.decode(data, allowMalformed: true);
-    final preview = text.length > 32 ? '${text.substring(0, 32)}…' : text;
-    _log('收到数据[${role?.name ?? "?"}]: "$preview" (${data.length} B)');
-  }
-
-  @override
-  void onTransferProgress(BluetoothPacketProgress progress) {
-    if (!mounted) return;
-    setState(() => _progress = progress);
-  }
-
-  @override
-  void onTransferCompleted(String transferId) {
-    if (!mounted) return;
-    setState(() => _progress = null);
-    _log('传输完成: $_shortId(transferId)');
-  }
-
-  @override
-  void onMetricsUpdated(BluetoothMetricSnapshot metrics) {
-    if (!mounted) return;
-    setState(() => _metrics = metrics);
-  }
-
-  @override
-  void onError(BluetoothError error) {
-    _log('错误: $error');
-  }
-
-  @override
-  void onTransferPaused(String transferId, int ackedOffset) {
-    _log('传输暂停(断连): $_shortId(transferId) @ $ackedOffset B');
-  }
-
-  @override
-  void onTransferResumed(String transferId, int fromOffset) {
-    _log('传输恢复: $_shortId(transferId) @ $fromOffset B');
-  }
 
   // MARK: - 构建 UI
 

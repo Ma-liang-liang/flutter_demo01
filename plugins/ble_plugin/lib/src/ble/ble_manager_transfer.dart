@@ -107,13 +107,14 @@ Future<String?> _sendReliableDataImpl(
     );
     // 先保存 ID，刷新队列时可能已完成并清空 _activeTransfer
     final transferId = m._activeTransfer!.id;
+    m._log('可靠传输开始: ${data.length} 字节, '
+        'payload $payloadLength 字节/包');
     await _flushActiveTransferImpl(m);
     return transferId;
   });
 }
 
-/// 读取指定角色的特征值（异步操作，结果通过
-/// [BluetoothManagerDelegate.onDataReceived] 回调返回）。
+/// 读取指定角色的特征值（异步操作，结果通过 [dataStream] 推送）。
 Future<void> _readValueImpl(
   BluetoothManager m, {
   BluetoothCharacteristicRole role = BluetoothCharacteristicRole.read,
@@ -220,9 +221,11 @@ void _handleAckTimeoutImpl(
   if (!transfer.retry(sequence)) {
     // 超过最大重试次数，取消传输并报错
     _cancelActiveTransferImpl(m);
+    m._log('包 $sequence ACK 超时，超过最大重试次数，取消传输');
     m._notifyFailure(BluetoothError.ackTimeout(sequence));
     return;
   }
+  m._log('包 $sequence ACK 超时，重试中');
   // 重新刷新传输队列
   _flushActiveTransferImpl(m);
 }
@@ -248,7 +251,7 @@ bool _handleApplicationFrameImpl(BluetoothManager m, BluetoothProtocolFrame fram
   }
 }
 
-/// 检查传输是否完成，完成则通知 delegate。
+/// 检查传输是否完成，完成则推送完成事件。
 void _completeTransferIfNeededImpl(BluetoothManager m) {
   final transfer = m._activeTransfer;
   if (transfer == null || !transfer.isComplete) return;
@@ -257,15 +260,17 @@ void _completeTransferIfNeededImpl(BluetoothManager m) {
   m._transferEventsStreamCtrl.add(
     BluetoothTransferCompleted(transferId: id),
   );
-  for (final delegate in m._liveDelegates) {
-    delegate.onTransferCompleted(id);
-  }
+  m._log('传输完成: $id');
 }
 
 /// 取消当前传输，清理所有超时定时器。
 void _cancelActiveTransferImpl(BluetoothManager m) {
+  final transferId = m._activeTransfer?.id;
   m._activeTransfer?.cancelTimeouts();
   m._activeTransfer = null;
+  if (transferId != null) {
+    m._log('传输取消: $transferId');
+  }
 }
 
 /// 查询当前最大写入长度。
@@ -332,6 +337,7 @@ void _resumePendingTransferIfNeededImpl(BluetoothManager m) {
   final resumedId = ctx.transferId;
   final resumedOffset = ctx.ackedOffset;
   m._pendingResume = null;
+  m._log('断点续传恢复: $resumedId @ $resumedOffset');
   _flushActiveTransferImpl(m);
   m._transferEventsStreamCtrl.add(
     BluetoothTransferResumed(
@@ -339,9 +345,6 @@ void _resumePendingTransferIfNeededImpl(BluetoothManager m) {
       fromOffset: resumedOffset,
     ),
   );
-  for (final delegate in m._liveDelegates) {
-    delegate.onTransferResumed(resumedId, resumedOffset);
-  }
 }
 
 /// 限制 payload 长度为正且不超过上限。

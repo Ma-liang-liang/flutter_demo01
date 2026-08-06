@@ -5,7 +5,7 @@
 /// - 各条流的事件推送（状态 / 扫描结果 / 连接 / 数据 / 错误 / 传输）
 /// - 应用层帧剥离帧头后才推送，ACK 帧不推送
 ///
-/// Stream 是独立事件源，不依赖 delegate；测试通过 [FakeBleBridge]
+/// Stream 是唯一的事件通知方式；测试通过 [FakeBleBridge]
 /// 注入事件，完全在内存中运行。
 library;
 
