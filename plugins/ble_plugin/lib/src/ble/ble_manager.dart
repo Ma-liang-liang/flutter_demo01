@@ -9,7 +9,8 @@
 ///    - [sendRaw]: 裸数据写入，不加应用层包头，适合简单调试
 ///    - [sendReliableData]: 可靠传输，含包头+CRC+ACK窗口+超时重试
 ///    - [readValue]: 读取外设特征值
-/// 4. 状态管理 —— 维护连接状态机，通过弱引用 delegate 模式通知外部
+/// 4. 状态管理 —— 维护连接状态机，通过响应式 Stream 通知外部
+///    （delegate 为过渡兼容，后续将移除）
 /// 5. 指标统计 —— 记录连接耗时、收发字节数、重连次数等
 /// 6. 断点续传 —— supportsResume 开启后，断连自动保存进度，重连后恢复
 ///
@@ -32,11 +33,26 @@ import 'ble_manager_delegate.dart';
 import 'ble_models.dart';
 import 'ble_profile.dart';
 import 'ble_protocol.dart';
+import 'ble_stream_events.dart';
 import 'ble_transfer.dart';
 
 part 'ble_manager_transfer.dart';
 
 /// 蓝牙核心管理器（单例）。
+///
+/// **事件通知（Stream 优先）：**
+/// 以响应式 Stream 对外通知（参考 flutter_blue_plus 设计风格）：
+/// 订阅即得当前值、流永不主动关闭。事件源直接来自内部状态变更，
+/// 不依赖 [BluetoothManagerDelegate]（后者仅为过渡期兼容保留）。
+///
+/// 主要流：
+/// - [adapterStateStream]：适配器状态
+/// - [connectionStateStream]：连接状态机
+/// - [scanResultsStream]：扫描结果快照
+/// - [currentDeviceStream]：当前连接设备
+/// - [dataStream]：收到外设的数据
+/// - [errorStream]：错误通知
+/// - [metricsStream] / [progressStream] / [transferEventsStream]：传输相关
 class BluetoothManager {
   // MARK: 单例
 
@@ -116,6 +132,40 @@ class BluetoothManager {
 
   final List<WeakReference<BluetoothManagerDelegate>> _delegates = [];
 
+  // MARK: Stream 控制器（独立事件源，不依赖 delegate）
+
+  final _ValueStreamController<BleAdapterState> _adapterStateStreamCtrl =
+      _ValueStreamController(initialValue: BleAdapterState.unknown);
+
+  final _ValueStreamController<BluetoothConnectionState>
+      _connectionStateStreamCtrl =
+      _ValueStreamController(initialValue: const IdleState());
+
+  final _ValueStreamController<List<BluetoothDevice>> _scanResultsStreamCtrl =
+      _ValueStreamController(initialValue: const []);
+
+  final _ValueStreamController<BluetoothDevice?> _currentDeviceStreamCtrl =
+      _ValueStreamController<BluetoothDevice?>();
+
+  final _ValueStreamController<Set<BluetoothCharacteristicRole>>
+      _characteristicRolesStreamCtrl =
+      _ValueStreamController(initialValue: const {});
+
+  final _ValueStreamController<BluetoothDataReceived> _dataStreamCtrl =
+      _ValueStreamController();
+
+  final _ValueStreamController<BluetoothError> _errorStreamCtrl =
+      _ValueStreamController();
+
+  final _ValueStreamController<BluetoothMetricSnapshot> _metricsStreamCtrl =
+      _ValueStreamController(initialValue: const BluetoothMetricSnapshot());
+
+  final _ValueStreamController<BluetoothPacketProgress> _progressStreamCtrl =
+      _ValueStreamController();
+
+  final _ValueStreamController<BluetoothTransferEvent> _transferEventsStreamCtrl =
+      _ValueStreamController();
+
   // MARK: 只读属性
 
   /// 蓝牙适配器当前状态。
@@ -135,6 +185,46 @@ class BluetoothManager {
 
   /// 当前是否有传输进行中。
   bool get isTransferActive => _activeTransfer != null;
+
+  // MARK: Stream API（订阅即得当前值，流永不主动关闭）
+
+  /// 蓝牙适配器状态流（unknown / poweredOn / poweredOff ...）。
+  Stream<BleAdapterState> get adapterStateStream =>
+      _adapterStateStreamCtrl.stream;
+
+  /// 连接状态机流（scanning / connecting / ready / disconnected ...）。
+  Stream<BluetoothConnectionState> get connectionStateStream =>
+      _connectionStateStreamCtrl.stream;
+
+  /// 扫描结果快照流（按 RSSI 降序），停止扫描后保留最后结果。
+  Stream<List<BluetoothDevice>> get scanResultsStream =>
+      _scanResultsStreamCtrl.stream;
+
+  /// 当前连接设备流（断开后推送 null）。
+  Stream<BluetoothDevice?> get currentDeviceStream =>
+      _currentDeviceStreamCtrl.stream;
+
+  /// 已就绪的特征角色流（可收发数据的角色集合）。
+  Stream<Set<BluetoothCharacteristicRole>> get characteristicRolesStream =>
+      _characteristicRolesStreamCtrl.stream;
+
+  /// 收到外设数据流（应用层帧已剥离帧头，角色见 [BluetoothDataReceived.role]）。
+  Stream<BluetoothDataReceived> get dataStream => _dataStreamCtrl.stream;
+
+  /// 错误流。
+  Stream<BluetoothError> get errorStream => _errorStreamCtrl.stream;
+
+  /// 运行时指标流（连接耗时、收发字节数、RSSI、MTU 等）。
+  Stream<BluetoothMetricSnapshot> get metricsStream =>
+      _metricsStreamCtrl.stream;
+
+  /// 传输进度流（节流频率由 [BluetoothTransferConfiguration.progressThrottleMs] 控制）。
+  Stream<BluetoothPacketProgress> get progressStream =>
+      _progressStreamCtrl.stream;
+
+  /// 传输生命周期流（completed / paused / resumed）。
+  Stream<BluetoothTransferEvent> get transferEventsStream =>
+      _transferEventsStreamCtrl.stream;
 
   // MARK: 初始化
 
@@ -164,6 +254,17 @@ class BluetoothManager {
     _activeTransfer?.cancelTimeouts();
     _activeTransfer = null;
     _initialized = false;
+    // 关闭所有 Stream 控制器
+    await _adapterStateStreamCtrl.close();
+    await _connectionStateStreamCtrl.close();
+    await _scanResultsStreamCtrl.close();
+    await _currentDeviceStreamCtrl.close();
+    await _characteristicRolesStreamCtrl.close();
+    await _dataStreamCtrl.close();
+    await _errorStreamCtrl.close();
+    await _metricsStreamCtrl.close();
+    await _progressStreamCtrl.close();
+    await _transferEventsStreamCtrl.close();
   }
 
   // MARK: - Delegate 管理
@@ -587,6 +688,7 @@ class BluetoothManager {
     _queryMaximumWriteLength(BleWriteType.withoutResponse, fallback: 20)
         .then((length) {
       _metrics = _metrics.copyWith(maximumWriteLength: length);
+      _notifyMetrics();
     });
     _setConnectionState(ReadyState(deviceId));
     _notifyReadyRoles();
@@ -611,6 +713,7 @@ class BluetoothManager {
       switch (event) {
         case BleStateChangedEvent(:final state):
           _adapterState = state;
+          _adapterStateStreamCtrl.add(state);
           for (final delegate in _liveDelegates) {
             delegate.onAdapterStateChanged(state);
           }
@@ -658,6 +761,7 @@ class BluetoothManager {
             maximumWriteLength:
                 mtu > 0 ? mtu - 3 : _metrics.maximumWriteLength,
           );
+          _notifyMetrics();
         case BleStateRestoredEvent(:final deviceId):
           // App 被系统杀掉后恢复连接：重新走服务发现流程
           _connectedPeripheralId = deviceId;
@@ -666,6 +770,7 @@ class BluetoothManager {
             name: 'Restored Device',
           );
           _connectedDevice = device;
+          _currentDeviceStreamCtrl.add(device);
           _setConnectionState(DiscoveringState(deviceId));
           for (final delegate in _liveDelegates) {
             delegate.onDeviceConnected(device);
@@ -693,6 +798,7 @@ class BluetoothManager {
             BluetoothDevice(identifier: deviceId, name: 'Bluetooth Device');
         _connectedDevice = device;
         _connectedPeripheralId = deviceId;
+        _currentDeviceStreamCtrl.add(device);
         // 进入服务发现阶段
         _setConnectionState(DiscoveringState(deviceId));
         for (final delegate in _liveDelegates) {
@@ -732,6 +838,12 @@ class BluetoothManager {
         final pausedId = transfer.id;
         final pausedOffset = transfer.ackedOffset;
         _cancelActiveTransfer();
+        _transferEventsStreamCtrl.add(
+          BluetoothTransferPaused(
+            transferId: pausedId,
+            ackedOffset: pausedOffset,
+          ),
+        );
         for (final delegate in _liveDelegates) {
           delegate.onTransferPaused(pausedId, pausedOffset);
         }
@@ -752,6 +864,7 @@ class BluetoothManager {
       // 主动断开或不允许重连 → 清空引用，释放内存
       _connectedPeripheralId = null;
       _connectedDevice = null;
+      _currentDeviceStreamCtrl.add(null);
     }
   }
 
@@ -805,6 +918,11 @@ class BluetoothManager {
       }
       // 是应用层帧但非 ACK（如 .data / .complete / .resumeRequest）
       // 传递纯净 payload，不包含帧头
+      _dataStreamCtrl.add(BluetoothDataReceived(
+        data: frame.payload,
+        role: role,
+        deviceId: deviceId,
+      ));
       for (final delegate in _liveDelegates) {
         delegate.onDataReceived(frame.payload, role);
       }
@@ -813,6 +931,11 @@ class BluetoothManager {
     }
 
     // 非应用层帧（裸数据），直接传递原始字节
+    _dataStreamCtrl.add(BluetoothDataReceived(
+      data: value,
+      role: role,
+      deviceId: deviceId,
+    ));
     for (final delegate in _liveDelegates) {
       delegate.onDataReceived(value, role);
     }
@@ -843,6 +966,7 @@ class BluetoothManager {
   /// 设置连接状态并通知 delegate。
   void _setConnectionState(BluetoothConnectionState state) {
     _connectionState = state;
+    _connectionStateStreamCtrl.add(state);
     for (final delegate in _liveDelegates) {
       delegate.onConnectionStateChanged(state);
     }
@@ -854,6 +978,7 @@ class BluetoothManager {
   void _notifyDiscoveredDevices() {
     final devices = _discoveredMap.values.toList()
       ..sort((a, b) => b.rssi.compareTo(a.rssi));
+    _scanResultsStreamCtrl.add(devices);
     for (final delegate in _liveDelegates) {
       delegate.onDevicesDiscovered(devices);
     }
@@ -876,6 +1001,7 @@ class BluetoothManager {
   /// 通知 delegate 特征角色就绪。
   void _notifyReadyRoles() {
     final roles = _characteristicsByRole.keys.toSet();
+    _characteristicRolesStreamCtrl.add(roles);
     for (final delegate in _liveDelegates) {
       delegate.onCharacteristicsReady(roles);
     }
@@ -901,6 +1027,7 @@ class BluetoothManager {
       sentBytes: transfer.ackedPayloadBytes,
       totalBytes: transfer.totalPayloadBytes,
     );
+    _progressStreamCtrl.add(progress);
     for (final delegate in _liveDelegates) {
       delegate.onTransferProgress(progress);
     }
@@ -909,6 +1036,7 @@ class BluetoothManager {
   /// 通知 delegate 指标更新。
   void _notifyMetrics() {
     final snapshot = _metrics;
+    _metricsStreamCtrl.add(snapshot);
     for (final delegate in _liveDelegates) {
       delegate.onMetricsUpdated(snapshot);
     }
@@ -916,6 +1044,7 @@ class BluetoothManager {
 
   /// 通知 delegate 发生错误。
   void _notifyFailure(BluetoothError error) {
+    _errorStreamCtrl.add(error);
     for (final delegate in _liveDelegates) {
       delegate.onError(error);
     }
@@ -941,6 +1070,64 @@ class BluetoothManager {
   }
 
   static double _minDouble(double a, double b) => a < b ? a : b;
+}
+
+/// 带最近值缓存的广播流控制器（BehaviorSubject 语义，零依赖）。
+///
+/// 每个新订阅者订阅时立即重放最近一次值（per-subscription，不影响
+/// 已有订阅者），与 flutter_blue_plus 的流行为一致：页面重建后
+/// 订阅即可拿到当前状态，无需先查 getter。
+class _ValueStreamController<T> {
+  /// 内部广播控制器（订阅分发由 [stream] 的 Stream.multi 完成）。
+  final StreamController<T> _controller = StreamController<T>.broadcast();
+
+  /// 最近一次值。
+  T? _value;
+
+  /// 是否已推送过值。
+  bool _hasValue;
+
+  _ValueStreamController({T? initialValue})
+      : _hasValue = initialValue != null,
+        _value = initialValue;
+
+  /// 最近一次值（未推送过时为初始值）。
+  T? get value => _value;
+
+  /// 对外暴露的流：每个订阅者立即收到当前值，随后收到增量事件。
+  ///
+  /// 控制器已关闭（dispose 后）时：重放缓存值后正常关闭，不抛错。
+  Stream<T> get stream => Stream.multi((listener) {
+        if (_hasValue) {
+          listener.add(_value as T);
+        }
+        // 已关闭（dispose 后）：只能拿到最近值，流立即结束
+        if (_controller.isClosed) {
+          listener.close();
+          return;
+        }
+        final sub = _controller.stream.listen(
+          listener.add,
+          onError: listener.addError,
+          onDone: listener.close,
+        );
+        listener.onCancel = sub.cancel;
+      });
+
+  /// 推送新值：缓存并广播给所有订阅者。
+  void add(T newValue) {
+    _hasValue = true;
+    _value = newValue;
+    if (!_controller.isClosed) {
+      _controller.add(newValue);
+    }
+  }
+
+  /// 关闭流（幂等：重复调用安全）。
+  Future<void> close() {
+    if (_controller.isClosed) return Future.value();
+    return _controller.close();
+  }
 }
 
 /// 角色对应的目标特征（服务 UUID + 特征 UUID + 属性）。

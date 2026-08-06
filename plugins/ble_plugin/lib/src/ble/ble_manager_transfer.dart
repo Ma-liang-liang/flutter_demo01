@@ -254,6 +254,9 @@ void _completeTransferIfNeededImpl(BluetoothManager m) {
   if (transfer == null || !transfer.isComplete) return;
   final id = transfer.id;
   m._activeTransfer = null;
+  m._transferEventsStreamCtrl.add(
+    BluetoothTransferCompleted(transferId: id),
+  );
   for (final delegate in m._liveDelegates) {
     delegate.onTransferCompleted(id);
   }
@@ -330,6 +333,12 @@ void _resumePendingTransferIfNeededImpl(BluetoothManager m) {
   final resumedOffset = ctx.ackedOffset;
   m._pendingResume = null;
   _flushActiveTransferImpl(m);
+  m._transferEventsStreamCtrl.add(
+    BluetoothTransferResumed(
+      transferId: resumedId,
+      fromOffset: resumedOffset,
+    ),
+  );
   for (final delegate in m._liveDelegates) {
     delegate.onTransferResumed(resumedId, resumedOffset);
   }

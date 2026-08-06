@@ -49,6 +49,7 @@ export 'src/ble/ble_manager_delegate.dart';
 export 'src/ble/ble_models.dart';
 export 'src/ble/ble_profile.dart';
 export 'src/ble/ble_protocol.dart';
+export 'src/ble/ble_stream_events.dart';
 export 'src/ble/ble_transfer.dart';
 export 'src/platform/ble_bridge.dart';
 export 'src/platform/ble_bridge_events.dart';
