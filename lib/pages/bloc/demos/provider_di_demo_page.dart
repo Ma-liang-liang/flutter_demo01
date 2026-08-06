@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../data/product.dart';
 import '../viewmodels/cart_cubit.dart';
 import '../widgets/explanation_card.dart';
 
@@ -47,8 +48,10 @@ class ProviderDiDemoPage extends StatelessWidget {
               points: [
                 '上方「商品区」和下方「购物车区」是两个独立的子组件，'
                     '它们各自 BlocBuilder 监听同一个 CartCubit。',
-                '点击加购后无需任何手动传值，购物车区自动刷新——'
+                '点击加购后无需任何手动传值，购物车区的行明细与总价自动刷新——'
                     '这就是「单一数据源 + 依赖注入」带来的解耦效果。',
+                '总价不是单独存的字段，而是从行项目派生的 getter，'
+                    '保证数据永远一致。',
               ],
             ),
           ],
@@ -58,36 +61,35 @@ class ProviderDiDemoPage extends StatelessWidget {
   }
 }
 
-/// 商品区：两个商品卡片，点击加购
+/// 商品区：三个商品价格各不相同，点击加购
 class _GoodsSection extends StatelessWidget {
   const _GoodsSection();
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: const [
-        _GoodsCard(name: 'Flutter 实战指南', emoji: '📘'),
-        _GoodsCard(name: '状态管理徽章', emoji: '🏅'),
+      children: [
+        for (final product in sampleProducts) _GoodsCard(product: product),
       ],
     );
   }
 }
 
 class _GoodsCard extends StatelessWidget {
-  const _GoodsCard({required this.name, required this.emoji});
+  const _GoodsCard({required this.product});
 
-  final String name;
-  final String emoji;
+  final Product product;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: Text(emoji, style: const TextStyle(fontSize: 28)),
-        title: Text(name),
-        subtitle: const Text('¥ 19.9'),
+        leading: Text(product.emoji, style: const TextStyle(fontSize: 28)),
+        title: Text(product.name),
+        subtitle: Text('¥ ${product.price.toStringAsFixed(1)}'),
         trailing: FilledButton.tonal(
-          onPressed: () => context.read<CartCubit>().add(name),
+          // 加购时传入完整的 Product 实体（价格随实体走）
+          onPressed: () => context.read<CartCubit>().add(product),
           child: const Text('加入购物车'),
         ),
       ),
@@ -95,7 +97,7 @@ class _GoodsCard extends StatelessWidget {
   }
 }
 
-/// 购物车区：数量、总价、清空、查看详情（Dialog 演示 BlocProvider.value）
+/// 购物车区：行明细、总价、清空、查看详情（Dialog 演示 BlocProvider.value）
 class _CartSection extends StatelessWidget {
   const _CartSection();
 
@@ -123,47 +125,92 @@ class _CartSection extends StatelessWidget {
                     ),
                     const Spacer(),
                     Badge.count(
-                      count: state.itemCount,
+                      count: state.totalCount,
                       backgroundColor: theme.colorScheme.primary,
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  state.lastAction.isEmpty ? '还没有操作' : state.lastAction,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                if (state.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      '购物车还是空的，去上面加购吧',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else ...[
+                  // 行明细：每行独立增减数量，小计 = 单价 × 数量
+                  for (final line in state.items)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${line.product.emoji} ${line.product.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '¥ ${line.product.price.toStringAsFixed(1)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => context
+                                .read<CartCubit>()
+                                .removeOne(line.product.id),
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                          Text('${line.quantity}'),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                context.read<CartCubit>().add(line.product),
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                          SizedBox(
+                            width: 64,
+                            child: Text(
+                              '¥ ${line.subtotal.toStringAsFixed(1)}',
+                              textAlign: TextAlign.right,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const Divider(),
+                  Text(
+                    '合计：¥ ${state.totalPrice.toStringAsFixed(1)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '合计：¥ ${state.totalPrice.toStringAsFixed(1)}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     OutlinedButton(
                       onPressed:
-                          state.itemCount == 0
-                              ? null
-                              : () => context.read<CartCubit>().remove(),
-                      child: const Text('移除一件'),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed:
-                          state.itemCount == 0
+                          state.isEmpty
                               ? null
                               : () => context.read<CartCubit>().clear(),
                       child: const Text('清空'),
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: state.itemCount == 0
+                      onPressed: state.isEmpty
                           ? null
                           : () => _showCartDialog(context),
                       child: const Text('查看详情'),
@@ -188,11 +235,38 @@ class _CartSection extends StatelessWidget {
         child: AlertDialog(
           title: const Text('购物车详情'),
           content: BlocBuilder<CartCubit, CartState>(
-            builder: (context, state) => Text(
-              '共 ${state.itemCount} 件商品，'
-              '合计 ¥ ${state.totalPrice.toStringAsFixed(1)}。\n\n'
-              '本 Dialog 通过 BlocProvider.value 共享页面上的同一个 CartCubit，'
-              '这里看到的数据与页面完全同步。',
+            builder: (context, state) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final line in state.items)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${line.product.emoji} ${line.product.name} × ${line.quantity}',
+                          ),
+                        ),
+                        Text('¥ ${line.subtotal.toStringAsFixed(1)}'),
+                      ],
+                    ),
+                  ),
+                const Divider(),
+                Text(
+                  '共 ${state.totalCount} 件，合计 ¥ ${state.totalPrice.toStringAsFixed(1)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '本 Dialog 通过 BlocProvider.value 共享页面上的同一个 CartCubit，'
+                  '这里看到的数据与页面完全同步。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
